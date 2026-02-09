@@ -1,0 +1,14 @@
+DROP TABLE IF EXISTS user_checklist_progress;
+DROP TABLE IF EXISTS user_lesson_progress;
+DROP TABLE IF EXISTS checklist_items;
+DROP TABLE IF EXISTS lesson_tags;
+DROP TABLE IF EXISTS lesson_materials;
+DROP TABLE IF EXISTS lesson_steps;
+DROP TABLE IF EXISTS lessons;
+DROP TABLE IF EXISTS modules;
+DROP TABLE IF EXISTS users;
+
+DROP TYPE IF EXISTS progress_status;
+DROP TYPE IF EXISTS material_kind;
+DROP TYPE IF EXISTS lesson_type;
+DROP TYPE IF EXISTS user_role;

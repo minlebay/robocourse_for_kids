@@ -1,0 +1,335 @@
+openapi: 3.0.3
+info:
+  title: Learn Kids API
+  description: API платформы обучения робототехнике для семьи
+  version: 1.0.0
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+paths:
+  /health:
+    get:
+      summary: Проверка готовности сервера и БД
+      tags: [health]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+        '503':
+          description: Сервис недоступен (БД не отвечает)
+
+  /auth/register:
+    post:
+      summary: Регистрация пользователя
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [login, password, name]
+              properties:
+                login: { type: string }
+                password: { type: string }
+                name: { type: string }
+                role: { type: string, enum: [student, teacher], default: student }
+      responses:
+        '201':
+          description: Создан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+                  token: { type: string }
+        '400':
+          description: Неверный запрос
+
+  /auth/login:
+    post:
+      summary: Вход
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [login, password]
+              properties:
+                login: { type: string }
+                password: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+                  token: { type: string }
+        '401':
+          description: Неверный логин или пароль
+
+  /auth/me:
+    get:
+      summary: Текущий пользователь
+      tags: [auth]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401':
+          description: Не авторизован
+
+  /modules:
+    get:
+      summary: Список модулей
+      tags: [lessons]
+      parameters:
+        - name: platform
+          in: query
+          schema: { type: string }
+        - name: tag
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Module' }
+
+  /modules/{id}:
+    get:
+      summary: Модуль по ID с вложенными уроками
+      tags: [lessons]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Module' }
+        '404':
+          description: Модуль не найден
+
+  /lessons/{id}:
+    get:
+      summary: Урок по ID (шаги, материалы, чек-лист)
+      tags: [lessons]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lesson' }
+        '404':
+          description: Урок не найден
+
+  /progress:
+    get:
+      summary: Прогресс текущего пользователя
+      tags: [progress]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProgress' }
+        '401':
+          description: Не авторизован
+
+  /lessons/{id}/progress:
+    put:
+      summary: Установить статус по уроку
+      tags: [progress]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [not_started, in_progress, completed]
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Не авторизован
+
+  /lessons/{id}/checklist/{itemId}:
+    put:
+      summary: Отметить пункт чек-листа
+      tags: [progress]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: itemId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                completed: { type: boolean }
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Не авторизован
+
+  /users:
+    get:
+      summary: Список пользователей (только teacher)
+      tags: [parent-dashboard]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/User' }
+        '403':
+          description: Только для учителя
+
+  /users/{id}/progress:
+    get:
+      summary: Прогресс ученика (только teacher)
+      tags: [parent-dashboard]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProgress' }
+        '403':
+          description: Только для учителя
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        login: { type: string }
+        name: { type: string }
+        role: { type: string, enum: [student, teacher] }
+        created_at: { type: string, format: date-time }
+    Module:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
+        sort_order: { type: integer }
+        lessons: { type: array, items: { $ref: '#/components/schemas/Lesson' } }
+        created_at: { type: string, format: date-time }
+    Lesson:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        module_id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
+        lesson_type: { type: string, enum: [theory, practice, project] }
+        sort_order: { type: integer }
+        steps: { type: array, items: { $ref: '#/components/schemas/LessonStep' } }
+        materials: { type: array, items: { $ref: '#/components/schemas/LessonMaterial' } }
+        tags: { type: array, items: { type: string } }
+        checklist: { type: array, items: { $ref: '#/components/schemas/ChecklistItem' } }
+        created_at: { type: string, format: date-time }
+    LessonStep:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        lesson_id: { type: string, format: uuid }
+        title: { type: string }
+        content: { type: string }
+        sort_order: { type: integer }
+    LessonMaterial:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        lesson_id: { type: string, format: uuid }
+        kind: { type: string, enum: [link, file] }
+        url_or_path: { type: string }
+        title: { type: string }
+    ChecklistItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        lesson_id: { type: string, format: uuid }
+        title: { type: string }
+        sort_order: { type: integer }
+    UserProgress:
+      type: object
+      properties:
+        lessons:
+          type: array
+          items:
+            type: object
+            properties:
+              lesson_id: { type: string, format: uuid }
+              status: { type: string, enum: [not_started, in_progress, completed] }
+              updated_at: { type: string, format: date-time }
+        checklist:
+          type: array
+          items:
+            type: object
+            properties:
+              checklist_item_id: { type: string, format: uuid }
+              completed_at: { type: string, format: date-time, nullable: true }
