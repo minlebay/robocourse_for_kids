@@ -5,7 +5,66 @@ import { useAuth } from '../auth/AuthContext'
 import { LedBlinkSimulator } from './LedBlinkSimulator'
 import { LessonChat } from './LessonChat'
 import { MermaidDiagram } from './MermaidDiagram'
+import { PageWithToc, type TocItem } from './PageWithToc'
 import type { Lesson as LessonType, LessonMaterial, UserProgress, Module } from '../../shared/types'
+
+/** Проверяет, похожа ли строка на начало кода (Python/MicroPython). Не используем только отступ (2+ пробела), чтобы не считать кодом списки и отступный текст. */
+function looksLikeCodeLine(line: string): boolean {
+  const t = line.trim()
+  return (
+    /^(from|import)\s/.test(t) ||
+    /^while\s/.test(t) ||
+    /^if\s|^else\s|^elif\s/.test(t) ||
+    /^def\s|^class\s/.test(t) ||
+    /^led\.|^time\.|Pin\(|\.value\(|\.sleep\(/.test(t) ||
+    /^[a-z_][a-z0-9_]*\s*=/.test(t)
+  )
+}
+
+function formatStepContent(content: string): React.ReactNode {
+  if (!content) return null
+  const blocks = content.split(/\n\n+/)
+  const out: React.ReactNode[] = []
+  blocks.forEach((block, i) => {
+    const trimmed = block.trim()
+    if (!trimmed) return
+    const lines = trimmed.split('\n')
+    const codeStart = lines.findIndex((l) => looksLikeCodeLine(l))
+    if (codeStart >= 0) {
+      const textPart = lines.slice(0, codeStart).join('\n').trim()
+      const codePart = lines.slice(codeStart).join('\n')
+      if (textPart) {
+        out.push(
+          <span key={`${i}-t`} className="step-text-block">
+            {textPart.split('\n').map((line, j) => (
+              <span key={j}>
+                {line}
+                {j < textPart.split('\n').length - 1 && <br />}
+              </span>
+            ))}
+          </span>
+        )
+      }
+      out.push(
+        <pre key={`${i}-c`} className="step-code-block">
+          <code>{codePart}</code>
+        </pre>
+      )
+    } else {
+      out.push(
+        <span key={i} className="step-text-block">
+          {lines.map((line, j) => (
+            <span key={j}>
+              {line}
+              {j < lines.length - 1 && <br />}
+            </span>
+          ))}
+        </span>
+      )
+    }
+  })
+  return out
+}
 
 export function LessonPage() {
   const { id } = useParams<{ id: string }>()
@@ -148,7 +207,15 @@ export function LessonPage() {
     )
   }
 
-  return (
+  const tocItems: TocItem[] = orderedLessons.map((l) => ({
+    id: l.id,
+    title: l.title,
+    href: `/lessons/${l.id}`,
+    active: l.id === lesson.id,
+  }))
+  const tocTitle = module_ ? module_.title : 'Урок'
+
+  const lessonContent = (
     <div className="lesson-page">
       <CourseNav />
       <div className="lesson-page-content">
@@ -191,7 +258,7 @@ export function LessonPage() {
             .map((step) => (
               <div key={step.id} className="step">
                 <h3>{step.title}</h3>
-                <div className="step-content">{step.content}</div>
+                <div className="step-content">{formatStepContent(step.content)}</div>
               </div>
             ))}
         </section>
@@ -242,5 +309,11 @@ export function LessonPage() {
       </div>
       <CourseNav />
     </div>
+  )
+
+  return (
+    <PageWithToc title={tocTitle} items={tocItems}>
+      {lessonContent}
+    </PageWithToc>
   )
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { modules } from '../../shared/api'
 import type { Module } from '../../shared/types'
+import { PageWithToc, type TocItem } from './PageWithToc'
 
 export function ModulePage() {
   const { id } = useParams<{ id: string }>()
@@ -23,24 +24,31 @@ export function ModulePage() {
     return <p>Загрузка...</p>
   }
 
+  const orderedLessons = (module_.lessons ?? []).sort((a, b) => a.sort_order - b.sort_order)
+  const tocItems: TocItem[] = orderedLessons.map((lesson) => ({
+    id: lesson.id,
+    title: lesson.title,
+    href: `/lessons/${lesson.id}`,
+  }))
+
   return (
-    <div className="module-page">
-      <p><Link to="/">← Каталог</Link></p>
-      <h1>{module_.title}</h1>
-      {module_.description && <p>{module_.description}</p>}
-      {module_.lessons && module_.lessons.length > 0 ? (
-        <ul className="lesson-list">
-          {module_.lessons
-            .sort((a, b) => a.sort_order - b.sort_order)
-            .map((lesson) => (
+    <PageWithToc title={module_.title} items={tocItems}>
+      <div className="module-page">
+        <p><Link to="/">← Каталог</Link></p>
+        <h1>{module_.title}</h1>
+        {module_.description && <p>{module_.description}</p>}
+        {orderedLessons.length > 0 ? (
+          <ul className="lesson-list">
+            {orderedLessons.map((lesson) => (
               <li key={lesson.id}>
                 <Link to={`/lessons/${lesson.id}`}>{lesson.title}</Link>
               </li>
             ))}
-        </ul>
-      ) : (
-        <p>В этом модуле пока нет уроков.</p>
-      )}
-    </div>
+          </ul>
+        ) : (
+          <p>В этом модуле пока нет уроков.</p>
+        )}
+      </div>
+    </PageWithToc>
   )
 }

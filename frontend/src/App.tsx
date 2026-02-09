@@ -14,29 +14,31 @@ function Layout({ children }: { children: React.ReactNode }) {
   if (loading) return <div className="layout">Загрузка...</div>
   return (
     <div className="layout">
-      <header className="header">
-        <nav>
-          <a href="/">Каталог</a>
-          {user && (
-            <>
-              <a href="/progress">Мой прогресс</a>
-              {user.role === 'teacher' && (
-                <a href="/dashboard">Дашборд</a>
-              )}
-              <button type="button" onClick={logout}>
-                Выйти ({user.name})
-              </button>
-            </>
-          )}
-          {!user && (
-            <>
-              <a href="/login">Вход</a>
-              <a href="/register">Регистрация</a>
-            </>
-          )}
-        </nav>
-      </header>
-      <main className="main">{children}</main>
+      <div className="layout-center">
+        <header className="header">
+          <nav>
+            <a href="/">Каталог</a>
+            {user && (
+              <>
+                <a href="/progress">Мой прогресс</a>
+                {user.role === 'teacher' && (
+                  <a href="/dashboard">Дашборд</a>
+                )}
+                <button type="button" onClick={logout}>
+                  Выйти ({user.name})
+                </button>
+              </>
+            )}
+            {!user && (
+              <>
+                <a href="/login">Вход</a>
+                <a href="/register">Регистрация</a>
+              </>
+            )}
+          </nav>
+        </header>
+        <main className="main">{children}</main>
+      </div>
     </div>
   )
 }

@@ -2,7 +2,9 @@ import { useCallback, useRef, useState } from 'react'
 
 const DEFAULT_CODE = `from machine import Pin
 import time
-led = Pin(25, Pin.OUT)
+time.sleep(0.1) # Wait for USB to become ready
+
+led = Pin("LED", Pin.OUT)
 while True:
     led.value(1)
     time.sleep(0.5)
@@ -144,7 +146,7 @@ export function LedBlinkSimulator() {
                 title={ledOn ? 'Включён' : 'Выключен'}
                 aria-hidden
               />
-              <span className="simulator-led-label">GP25</span>
+              <span className="simulator-led-label">LED</span>
             </div>
           </div>
         </div>
@@ -161,7 +163,7 @@ export function LedBlinkSimulator() {
         </div>
       </div>
       <p className="simulator-hint">
-        Поддерживаются команды: <code>led.value(1)</code> / <code>led.value(0)</code>, <code>time.sleep(секунды)</code>. Цикл повторяется несколько раз, затем останавливается.
+        Для встроенного светодиода: <code>led = Pin("LED", Pin.OUT)</code>. Поддерживаются команды: <code>led.value(1)</code> / <code>led.value(0)</code>, <code>time.sleep(секунды)</code>. Цикл повторяется несколько раз, затем останавливается.
       </p>
     </div>
   )
