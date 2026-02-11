@@ -1,0 +1,143 @@
+import { useCallback, useEffect, useState } from 'react'
+import { lessons as lessonsApi } from '../../shared/api'
+import { useAuth } from '../auth/AuthContext'
+import type { LessonComment } from '../../shared/types'
+
+function formatDate(iso: string): string {
+  try {
+    const d = new Date(iso)
+    return d.toLocaleDateString('ru-RU', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  } catch {
+    return iso
+  }
+}
+
+export function LessonComments({ lessonId }: { lessonId: string }) {
+  const { user } = useAuth()
+  const [comments, setComments] = useState<LessonComment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [text, setText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const load = useCallback(() => {
+    lessonsApi
+      .getComments(lessonId)
+      .then(setComments)
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [lessonId])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const submit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault()
+      const trimmed = text.trim()
+      if (!trimmed || !user || submitting) return
+      if (trimmed.length > 2000) {
+        setError('Комментарий не должен превышать 2000 символов')
+        return
+      }
+      setError('')
+      setSubmitting(true)
+      lessonsApi
+        .addComment(lessonId, trimmed)
+        .then((newComment) => {
+          setComments((prev) => [...prev, newComment])
+          setText('')
+        })
+        .catch((err) => setError(err.message))
+        .finally(() => setSubmitting(false))
+    },
+    [lessonId, text, user, submitting]
+  )
+
+  const handleDelete = useCallback(
+    (commentId: string) => {
+      if (!user || deletingId) return
+      setDeletingId(commentId)
+      setError('')
+      lessonsApi
+        .deleteComment(lessonId, commentId)
+        .then(() => setComments((prev) => prev.filter((c) => c.id !== commentId)))
+        .catch((err) => setError(err.message))
+        .finally(() => setDeletingId(null))
+    },
+    [lessonId, user, deletingId]
+  )
+
+  if (loading) {
+    return (
+      <section className="lesson-comments">
+        <h2>Комментарии</h2>
+        <p className="lesson-comments-loading">Загрузка...</p>
+      </section>
+    )
+  }
+
+  return (
+    <section className="lesson-comments">
+      <h2>Комментарии</h2>
+      {error && <p className="lesson-comments-error">{error}</p>}
+      <ul className="lesson-comments-list" aria-label="Комментарии к уроку">
+        {comments.length === 0 ? (
+          <li className="lesson-comments-empty">Пока нет комментариев. Будь первым!</li>
+        ) : (
+          comments.map((c) => (
+            <li key={c.id} className="lesson-comments-item">
+              <div className="lesson-comments-meta">
+                <span className="lesson-comments-author">{c.user_name}</span>
+                <span className="lesson-comments-date">{formatDate(c.created_at)}</span>
+                {user?.id === c.user_id && (
+                  <button
+                    type="button"
+                    className="lesson-comments-delete button-danger-outline"
+                    onClick={() => handleDelete(c.id)}
+                    disabled={deletingId === c.id}
+                    title="Удалить комментарий"
+                  >
+                    {deletingId === c.id ? '…' : 'Удалить'}
+                  </button>
+                )}
+              </div>
+              <p className="lesson-comments-text">{c.text}</p>
+            </li>
+          ))
+        )}
+      </ul>
+      {user ? (
+        <form className="lesson-comments-form" onSubmit={submit}>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Напишите комментарий..."
+            rows={2}
+            maxLength={2000}
+            className="lesson-comments-input"
+            disabled={submitting}
+          />
+          <div className="lesson-comments-actions">
+            <span className="lesson-comments-hint">
+              {text.length}/2000
+            </span>
+            <button type="submit" className="button-primary" disabled={!text.trim() || submitting}>
+              Отправить
+            </button>
+          </div>
+        </form>
+      ) : (
+        <p className="lesson-comments-login">Войдите, чтобы оставить комментарий.</p>
+      )}
+    </section>
+  )
+}
