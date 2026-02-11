@@ -18,13 +18,14 @@
    ```bash
    docker compose up --build
    ```
-4. Откройте в браузере: **http://localhost:8080** — там и API, и фронт (статику отдаёт тот же сервис).
+4. Откройте в браузере: **http://localhost:8888** — доступ через Nginx (reverse proxy).
 
-API: **http://localhost:8080/api/v1**. Спецификация OpenAPI: [backend/api/openapi.yaml](backend/api/openapi.yaml). Интерактивная документация (если настроена): `GET http://localhost:8080/api/docs` — отдача файла OpenAPI.
+API: **http://localhost:8888/api/v1**. Спецификация OpenAPI: [backend/api/openapi.yaml](backend/api/openapi.yaml). Интерактивная документация: `GET http://localhost:8888/api/docs`.
 
 ## Сервисы
 
-- **api** — бэкенд на Go (Gin): REST API, раздача статики фронта, миграции БД при старте. Порт 8080.
+- **nginx** — reverse proxy, порт 8888. Принимает запросы только из подсети 192.168.1.0/24 и localhost.
+- **api** — бэкенд на Go (Gin): REST API, раздача статики фронта, миграции БД при старте. Порт 8080 только внутри Docker-сети.
 - **db** — PostgreSQL 15. Данные хранятся в volume `db_data`.
 
 ## Разработка без Docker
@@ -41,7 +42,7 @@ go run ./cmd/api
 
 ### Фронтенд
 
-В Docker фронт отдаётся с **http://localhost:8080** (вместе с API). Для разработки UI можно запустить Vite отдельно:
+В Docker фронт отдаётся с **http://localhost:8888** (через Nginx). Для разработки UI можно запустить Vite отдельно:
 
 ```bash
 cd frontend
@@ -49,7 +50,7 @@ npm install
 npm run dev
 ```
 
-Тогда фронт будет на отдельном порту с проксированием `/api` на бэкенд (`vite.config.ts`). Для работы «всё из контейнера» используйте только **http://localhost:8080**.
+Тогда фронт будет на отдельном порту с проксированием `/api` на бэкенд (`vite.config.ts`). Для работы «всё из контейнера» используйте **http://localhost:8888**.
 
 ## Перенос на другой хост
 
@@ -64,7 +65,7 @@ npm run dev
 
 ## Тесты и .test.env
 
-В корне проекта лежит файл **.test.env** с тестовыми переменными окружения (`DATABASE_URL`, `JWT_SECRET`, `PORT`, `FRONTEND_ORIGIN`). Интеграционные тесты бэкенда при запуске автоматически подхватывают его (из `../.test.env` при запуске из `backend/`).
+В корне проекта лежит файл **.test.env** с тестовыми переменными окружения (`DATABASE_URL`, `JWT_SECRET`, `PORT`, `FRONTEND_ORIGIN`, `GEMINI_API_KEY`). Интеграционные тесты бэкенда при запуске автоматически подхватывают его (из `../.test.env` при запуске из `backend/`). Сервис **api** в `docker compose` тоже загружает `.test.env` (в дополнение к `.env`), поэтому ключ Gemini для чата с ИИ подхватится из `.test.env`.
 
 - Запуск тестов бэкенда (сначала поднимите БД: `docker compose up -d db`):
   ```bash
