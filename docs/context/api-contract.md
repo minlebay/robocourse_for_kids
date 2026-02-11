@@ -15,6 +15,9 @@
 | GET | /api/v1/modules | Список модулей | — |
 | GET | /api/v1/modules/:id | Модуль с уроками | — |
 | GET | /api/v1/lessons/:id | Урок (шаги, материалы, чек-лист) | — |
+| GET | /api/v1/lessons/:id/comments | Список комментариев к уроку | — |
+| POST | /api/v1/lessons/:id/comments | Добавить комментарий | JWT |
+| DELETE | /api/v1/lessons/:id/comments/:commentId | Удалить свой комментарий | JWT |
 | GET | /api/v1/progress | Прогресс текущего пользователя | JWT |
 | PUT | /api/v1/lessons/:id/progress | Статус по уроку | JWT |
 | PUT | /api/v1/lessons/:id/checklist/:itemId | Пункт чек-листа | JWT |

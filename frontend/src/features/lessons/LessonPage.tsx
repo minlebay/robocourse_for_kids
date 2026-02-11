@@ -1,69 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { lessons as lessonsApi, progress as progressApi, modules as modulesApi } from '../../shared/api'
 import { useAuth } from '../auth/AuthContext'
 import { LedBlinkSimulator } from './LedBlinkSimulator'
 import { LessonChat } from './LessonChat'
+import { LessonComments } from './LessonComments'
 import { MermaidDiagram } from './MermaidDiagram'
 import { PageWithToc, type TocItem } from './PageWithToc'
 import type { Lesson as LessonType, LessonMaterial, UserProgress, Module } from '../../shared/types'
 
-/** Проверяет, похожа ли строка на начало кода (Python/MicroPython). Не используем только отступ (2+ пробела), чтобы не считать кодом списки и отступный текст. */
-function looksLikeCodeLine(line: string): boolean {
-  const t = line.trim()
-  return (
-    /^(from|import)\s/.test(t) ||
-    /^while\s/.test(t) ||
-    /^if\s|^else\s|^elif\s/.test(t) ||
-    /^def\s|^class\s/.test(t) ||
-    /^led\.|^time\.|Pin\(|\.value\(|\.sleep\(/.test(t) ||
-    /^[a-z_][a-z0-9_]*\s*=/.test(t)
-  )
-}
-
-function formatStepContent(content: string): React.ReactNode {
-  if (!content) return null
-  const blocks = content.split(/\n\n+/)
-  const out: React.ReactNode[] = []
-  blocks.forEach((block, i) => {
-    const trimmed = block.trim()
-    if (!trimmed) return
-    const lines = trimmed.split('\n')
-    const codeStart = lines.findIndex((l) => looksLikeCodeLine(l))
-    if (codeStart >= 0) {
-      const textPart = lines.slice(0, codeStart).join('\n').trim()
-      const codePart = lines.slice(codeStart).join('\n')
-      if (textPart) {
-        out.push(
-          <span key={`${i}-t`} className="step-text-block">
-            {textPart.split('\n').map((line, j) => (
-              <span key={j}>
-                {line}
-                {j < textPart.split('\n').length - 1 && <br />}
-              </span>
-            ))}
-          </span>
-        )
-      }
-      out.push(
-        <pre key={`${i}-c`} className="step-code-block">
-          <code>{codePart}</code>
-        </pre>
-      )
-    } else {
-      out.push(
-        <span key={i} className="step-text-block">
-          {lines.map((line, j) => (
-            <span key={j}>
-              {line}
-              {j < lines.length - 1 && <br />}
-            </span>
-          ))}
-        </span>
-      )
-    }
-  })
-  return out
+type EditForm = {
+  title: string
+  description: string
+  steps: { title: string; content: string }[]
 }
 
 export function LessonPage() {
@@ -73,6 +24,9 @@ export function LessonPage() {
   const [progress, setProgress] = useState<UserProgress | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [editing, setEditing] = useState(false)
+  const [editForm, setEditForm] = useState<EditForm | null>(null)
+  const [saveError, setSaveError] = useState('')
   const { user } = useAuth()
 
   const load = useCallback(() => {
@@ -122,6 +76,72 @@ export function LessonPage() {
   const isChecklistDone = (itemId: string) => {
     return progress?.checklist?.some((c) => c.checklist_item_id === itemId && c.completed_at) ?? false
   }
+
+  const startEditing = useCallback(() => {
+    if (!lesson) return
+    const steps = [...(lesson.steps ?? [])].sort((a, b) => a.sort_order - b.sort_order)
+    setEditForm({
+      title: lesson.title,
+      description: lesson.description ?? '',
+      steps: steps.map((s) => ({ title: s.title, content: s.content ?? '' })),
+    })
+    setEditing(true)
+    setSaveError('')
+  }, [lesson])
+
+  const cancelEditing = useCallback(() => {
+    setEditing(false)
+    setEditForm(null)
+    setSaveError('')
+  }, [])
+
+  const saveLesson = useCallback(() => {
+    if (!id || !editForm) return
+    if (!editForm.title.trim()) {
+      setSaveError('Введите название урока')
+      return
+    }
+    if (editForm.steps.some((s) => !s.title.trim())) {
+      setSaveError('У каждого шага должен быть заголовок')
+      return
+    }
+    setSaveError('')
+    lessonsApi
+      .update(id, {
+        title: editForm.title,
+        description: editForm.description || undefined,
+        steps: editForm.steps.map((s, i) => ({ title: s.title, content: s.content, sort_order: i })),
+      })
+      .then((updated) => {
+        setLesson(updated)
+        setEditing(false)
+        setEditForm(null)
+      })
+      .catch((err) => setSaveError(err.message))
+  }, [id, editForm])
+
+  const addStep = useCallback(() => {
+    setEditForm((prev) =>
+      prev ? { ...prev, steps: [...prev.steps, { title: 'Новый шаг', content: '' }] } : prev
+    )
+  }, [])
+
+  const removeStep = useCallback((index: number) => {
+    setEditForm((prev) =>
+      prev && prev.steps.length > 1
+        ? { ...prev, steps: prev.steps.filter((_, i) => i !== index) }
+        : prev
+    )
+  }, [])
+
+  const updateEditStep = useCallback((index: number, field: 'title' | 'content', value: string) => {
+    setEditForm((prev) => {
+      if (!prev) return prev
+      const steps = [...prev.steps]
+      steps[index] = { ...steps[index], [field]: value }
+      return { ...prev, steps }
+    })
+  }, [])
 
   if (loading || !lesson) {
     if (error) return <p className="error">{error}</p>
@@ -216,9 +236,80 @@ export function LessonPage() {
   const tocTitle = module_ ? module_.title : 'Урок'
 
   const lessonContent = (
-    <div className="lesson-page">
+    <div className={`lesson-page${editing && editForm ? ' lesson-page--editing' : ''}`}>
       <CourseNav />
       <div className="lesson-page-content">
+      {user?.role === 'teacher' && !editing && (
+        <div className="lesson-edit-bar">
+          <button type="button" className="button-primary" onClick={startEditing}>
+            Редактировать
+          </button>
+        </div>
+      )}
+
+      {editing && editForm ? (
+        <section className="lesson-edit-form">
+          <h2>Редактирование урока</h2>
+          {saveError && <p className="error">{saveError}</p>}
+          <div className="form-group">
+            <label htmlFor="edit-lesson-title">Название</label>
+            <input
+              id="edit-lesson-title"
+              value={editForm.title}
+              onChange={(e) => setEditForm((prev) => prev && { ...prev, title: e.target.value })}
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="edit-lesson-desc">Описание</label>
+            <textarea
+              id="edit-lesson-desc"
+              rows={2}
+              value={editForm.description}
+              onChange={(e) => setEditForm((prev) => prev && { ...prev, description: e.target.value })}
+            />
+          </div>
+          <h3>Шаги</h3>
+          {editForm.steps.map((step, idx) => (
+            <div key={idx} className="lesson-edit-step">
+              <div className="form-group">
+                <label>Заголовок шага {idx + 1}</label>
+                <input
+                  value={step.title}
+                  onChange={(e) => updateEditStep(idx, 'title', e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>Контент (Markdown)</label>
+                <textarea
+                  rows={6}
+                  value={step.content}
+                  onChange={(e) => updateEditStep(idx, 'content', e.target.value)}
+                />
+              </div>
+              <button
+                type="button"
+                className="button-danger-outline"
+                onClick={() => removeStep(idx)}
+                disabled={editForm.steps.length <= 1}
+              >
+                Удалить шаг
+              </button>
+            </div>
+          ))}
+          <div className="form-actions">
+            <button type="button" className="button-secondary" onClick={addStep}>
+              Добавить шаг
+            </button>
+            <button type="button" className="button-primary" onClick={saveLesson}>
+              Сохранить
+            </button>
+            <button type="button" className="button-secondary" onClick={cancelEditing}>
+              Отмена
+            </button>
+          </div>
+        </section>
+      ) : (
+        <>
       <h1>{lesson.title}</h1>
       {lesson.description && <p className="description">{lesson.description}</p>}
       <p className="meta">Тип: {lesson.lesson_type}</p>
@@ -258,7 +349,9 @@ export function LessonPage() {
             .map((step) => (
               <div key={step.id} className="step">
                 <h3>{step.title}</h3>
-                <div className="step-content">{formatStepContent(step.content)}</div>
+                <div className="step-content step-content-markdown">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{step.content ?? ''}</ReactMarkdown>
+                </div>
               </div>
             ))}
         </section>
@@ -306,13 +399,20 @@ export function LessonPage() {
       )}
 
       <LessonChat lesson={lesson} />
+      <LessonComments lessonId={lesson.id} />
+        </>
+      )}
       </div>
       <CourseNav />
     </div>
   )
 
   return (
-    <PageWithToc title={tocTitle} items={tocItems}>
+    <PageWithToc
+      title={tocTitle}
+      items={tocItems}
+      containerClassName={editing && editForm ? 'content-with-toc--editing' : undefined}
+    >
       {lessonContent}
     </PageWithToc>
   )

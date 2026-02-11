@@ -135,6 +135,78 @@ paths:
         '404':
           description: Модуль не найден
 
+  /lessons/{id}/comments:
+    get:
+      summary: Список комментариев к уроку
+      tags: [comments]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/LessonComment' }
+        '400':
+          description: Неверный id урока
+    post:
+      summary: Добавить комментарий (требуется авторизация)
+      tags: [comments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, minLength: 1, maxLength: 2000 }
+      responses:
+        '201':
+          description: Создан
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LessonComment' }
+        '400':
+          description: Неверное тело запроса
+        '401':
+          description: Не авторизован
+
+  /lessons/{id}/comments/{commentId}:
+    delete:
+      summary: Удалить свой комментарий
+      tags: [comments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          description: ID урока
+        - name: commentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          description: ID комментария
+      responses:
+        '204':
+          description: Удалено
+        '401':
+          description: Не авторизован
+        '404':
+          description: Комментарий не найден или доступ запрещён
+
   /lessons/{id}:
     get:
       summary: Урок по ID (шаги, материалы, чек-лист)
@@ -150,6 +222,46 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Lesson' }
+        '404':
+          description: Урок не найден
+    put:
+      summary: Обновить урок (только teacher)
+      tags: [lessons]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                steps:
+                  type: array
+                  items:
+                    type: object
+                    required: [title]
+                    properties:
+                      title: { type: string }
+                      content: { type: string }
+                      sort_order: { type: integer }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lesson' }
+        '400':
+          description: Неверное тело запроса
+        '401':
+          description: Не авторизован
+        '403':
+          description: Только для учителя
         '404':
           description: Урок не найден
 
@@ -315,6 +427,15 @@ components:
         lesson_id: { type: string, format: uuid }
         title: { type: string }
         sort_order: { type: integer }
+    LessonComment:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        lesson_id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        user_name: { type: string }
+        text: { type: string }
+        created_at: { type: string, format: date-time }
     UserProgress:
       type: object
       properties:

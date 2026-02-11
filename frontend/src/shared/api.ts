@@ -48,6 +48,27 @@ export const modules = {
 
 export const lessons = {
   get: (id: string) => api<import('./types').Lesson>(`/lessons/${id}`),
+  getComments: (id: string) =>
+    api<import('./types').LessonComment[]>(`/lessons/${id}/comments`),
+  addComment: (id: string, text: string) =>
+    api<import('./types').LessonComment>(`/lessons/${id}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
+  deleteComment: (lessonId: string, commentId: string) =>
+    api<void>(`/lessons/${lessonId}/comments/${commentId}`, { method: 'DELETE' }),
+  update: (
+    id: string,
+    body: {
+      title?: string
+      description?: string
+      steps?: { title: string; content: string; sort_order: number }[]
+    }
+  ) =>
+    api<import('./types').Lesson>(`/lessons/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
 }
 
 export const progress = {

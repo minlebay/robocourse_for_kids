@@ -4,7 +4,7 @@
 
 ## Требования
 
-- **Docker** и **docker-compose** — для запуска всего стека.
+- **Docker** и **docker compose** — для запуска всего стека.
 - Опционально для локальной разработки: **Go 1.21+**, **Node 20+**.
 
 ## Быстрый старт
@@ -16,7 +16,7 @@
    ```
 3. Запустите сервисы:
    ```bash
-   docker-compose up --build
+   docker compose up --build
    ```
 4. Откройте в браузере: **http://localhost:8080** — там и API, и фронт (статику отдаёт тот же сервис).
 
@@ -37,7 +37,7 @@ export DATABASE_URL="postgres://postgres:postgres@localhost:5432/learn_kids?sslm
 go run ./cmd/api
 ```
 
-БД должна быть запущена (например, `docker-compose up -d db`).
+БД должна быть запущена (например, `docker compose up -d db`).
 
 ### Фронтенд
 
@@ -58,7 +58,7 @@ npm run dev
 - Исходный репозиторий (или образы и `docker-compose.yml`).
 - Файл `.env` с актуальными `DATABASE_URL`, `JWT_SECRET`, при необходимости `FRONTEND_ORIGIN`.
 
-Запустите `docker-compose up -d`. Volume `db_data` сохраняет данные БД — при переносе его можно перенести или оставить на старом хосте и заново поднять БД.
+Запустите `docker compose up -d`. Volume `db_data` сохраняет данные БД — при переносе его можно перенести или оставить на старом хосте и заново поднять БД.
 
 Подробнее: [docs/deployment.md](docs/deployment.md).
 

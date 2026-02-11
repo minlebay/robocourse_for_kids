@@ -17,9 +17,11 @@ type PageWithTocProps = {
   title: string
   items: TocItem[]
   children: React.ReactNode
+  /** Класс для контейнера (например, при режиме редактирования урока) */
+  containerClassName?: string
 }
 
-export function PageWithToc({ title, items, children }: PageWithTocProps) {
+export function PageWithToc({ title, items, children, containerClassName }: PageWithTocProps) {
   const [width, setWidth] = useState(DEFAULT_WIDTH)
   const [isDragging, setIsDragging] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
@@ -70,7 +72,7 @@ export function PageWithToc({ title, items, children }: PageWithTocProps) {
   }, [isDragging, saveWidth])
 
   return (
-    <div className="content-with-toc">
+    <div className={['content-with-toc', containerClassName].filter(Boolean).join(' ')}>
       <aside
         ref={sidebarRef}
         className="toc-sidebar"

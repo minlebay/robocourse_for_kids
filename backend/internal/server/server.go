@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"learn_kids/backend/internal/domain/chat"
+	"learn_kids/backend/internal/domain/comments"
 	"learn_kids/backend/internal/domain/lessons"
 	"learn_kids/backend/internal/domain/progress"
 	"learn_kids/backend/internal/domain/users"
@@ -15,12 +16,13 @@ import (
 )
 
 type Server struct {
-	engine  *gin.Engine
-	pool    *pgxpool.Pool
-	lessons *lessons.Handler
-	users   *users.Handler
+	engine   *gin.Engine
+	pool     *pgxpool.Pool
+	lessons  *lessons.Handler
+	users    *users.Handler
 	progress *progress.Handler
-	chat    *chat.Handler
+	chat     *chat.Handler
+	comments *comments.Handler
 }
 
 type Deps struct {
@@ -29,6 +31,7 @@ type Deps struct {
 	Users     *users.Handler
 	Progress  *progress.Handler
 	Chat      *chat.Handler
+	Comments  *comments.Handler
 	JWTSecret string
 }
 
@@ -47,6 +50,7 @@ func New(d Deps) *Server {
 		users:    d.Users,
 		progress: d.Progress,
 		chat:     d.Chat,
+		comments: d.Comments,
 	}
 	s.routes()
 	return s
@@ -63,8 +67,14 @@ func (s *Server) routes() {
 	api.POST("/auth/register", s.users.RegisterUser)
 	api.POST("/auth/login", s.users.Login)
 
-	// Lessons (public read)
+	// Lessons (public read; teacher can update)
 	s.lessons.Register(api)
+	api.PUT("/lessons/:id", s.requireAuth, s.requireTeacher, s.lessons.UpdateLesson)
+
+	// Comments (public read; auth required to post)
+	api.GET("/lessons/:id/comments", s.comments.List)
+	api.POST("/lessons/:id/comments", s.requireAuth, s.comments.Create)
+	api.DELETE("/lessons/:id/comments/:commentId", s.requireAuth, s.comments.Delete)
 
 	// Auth required from here for some routes
 	api.GET("/auth/me", s.requireAuth, s.users.Me)

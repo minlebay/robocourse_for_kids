@@ -21,8 +21,22 @@
   box-sizing: border-box;
 }
 
+html, body {
+  width: 100%;
+  min-height: 100vh;
+}
+#root {
+  width: 100%;
+  min-height: 100vh;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
 body {
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   font-family: 'Nunito', system-ui, -apple-system, sans-serif;
   background: var(--bg);
   color: var(--text);
@@ -38,7 +52,7 @@ body {
 
 .layout-center {
   width: 100%;
-  max-width: 900px;
+  max-width: 1400px;
   margin-left: auto;
   margin-right: auto;
   display: flex;
@@ -175,10 +189,58 @@ body {
   background: var(--accent);
 }
 .toc-main {
-  flex: 1;
+  flex: 1 1 0%;
   min-width: 0;
   overflow-x: hidden;
   padding: 0 1.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.toc-main > * {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Режим редактирования урока: контентная часть тянется на всю доступную ширину */
+.content-with-toc--editing {
+  width: 100%;
+  min-width: 0;
+}
+.content-with-toc--editing .toc-main {
+  flex: 1 1 0%;
+  min-width: 0;
+  width: 100%;
+}
+.content-with-toc--editing .lesson-page,
+.content-with-toc--editing .lesson-page-content {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0;
+}
+.content-with-toc--editing .lesson-edit-form {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.content-with-toc--editing .lesson-edit-form .form-group,
+.content-with-toc--editing .lesson-edit-step {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.content-with-toc--editing .lesson-edit-form .form-group input,
+.content-with-toc--editing .lesson-edit-form .form-group textarea,
+.content-with-toc--editing .lesson-edit-step input,
+.content-with-toc--editing .lesson-edit-step textarea {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .error {
@@ -319,17 +381,21 @@ body {
 
 /* Lesson page */
 .lesson-page {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   background: var(--bg-card);
   padding: 2rem;
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   border: 1px solid var(--border);
   box-sizing: border-box;
-  max-width: 100%;
 }
 .lesson-page-content {
   display: block;
-  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .lesson-page .course-nav {
@@ -389,6 +455,114 @@ body {
   font-size: 0.9rem;
   color: var(--text-muted);
   margin: 0.5rem 0;
+}
+
+/* Кнопка и форма редактирования урока (teacher) */
+.lesson-edit-bar {
+  margin-bottom: 1.5rem;
+}
+.lesson-edit-form {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  box-sizing: border-box;
+}
+.lesson-edit-form h2 {
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+  font-size: 1.25rem;
+}
+.lesson-edit-form h3 {
+  margin: 1.5rem 0 0.75rem;
+  font-size: 1.05rem;
+}
+.lesson-edit-form .form-group {
+  margin-bottom: 1rem;
+}
+.lesson-edit-form .form-group label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+.lesson-edit-form input,
+.lesson-edit-form input[type="text"],
+.lesson-edit-form textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+}
+.lesson-edit-form textarea {
+  min-height: 4rem;
+  resize: vertical;
+}
+.lesson-edit-step {
+  margin: 1.25rem 0;
+  padding: 1rem;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--accent);
+}
+.lesson-edit-step .form-group {
+  margin-bottom: 0.75rem;
+}
+.lesson-edit-form .form-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.button-primary,
+.button-secondary,
+.button-danger-outline {
+  padding: 0.5rem 1rem;
+  font: inherit;
+  font-size: 0.95rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.button-primary {
+  background: var(--accent);
+  color: var(--header-text);
+  border-color: var(--accent);
+}
+.button-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.button-secondary {
+  background: var(--bg);
+  color: var(--text);
+  border-color: var(--border);
+}
+.button-secondary:hover {
+  background: var(--border);
+}
+.button-danger-outline {
+  color: #f87171;
+  background: transparent;
+  border-color: #f87171;
+}
+.button-danger-outline:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.15);
+}
+.button-danger-outline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .progress-actions {
@@ -461,19 +635,24 @@ body {
   min-width: 0;
 }
 
-.lesson-page .step-content .step-text-block {
-  display: block;
-  white-space: pre-wrap;
-  margin-bottom: 0.75rem;
-  overflow-wrap: break-word;
-  word-break: break-word;
+/* Markdown-контент шага */
+.lesson-page .step-content-markdown p {
+  margin: 0 0 0.75rem;
+  line-height: 1.5;
 }
-.lesson-page .step-content .step-text-block:last-child {
+.lesson-page .step-content-markdown p:last-child {
   margin-bottom: 0;
 }
-
-.lesson-page .step-content .step-code-block {
-  display: block;
+.lesson-page .step-content-markdown ul,
+.lesson-page .step-content-markdown ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+.lesson-page .step-content-markdown li {
+  margin: 0.25rem 0;
+  line-height: 1.5;
+}
+.lesson-page .step-content-markdown pre {
   margin: 0.75rem 0;
   padding: 1rem 1.25rem;
   font-family: ui-monospace, "SF Mono", "Consolas", "Liberation Mono", Menlo, monospace;
@@ -489,12 +668,44 @@ body {
   max-width: 100%;
   min-width: 0;
 }
-.lesson-page .step-content .step-code-block code {
+.lesson-page .step-content-markdown pre code {
   background: none;
   padding: 0;
   font-size: inherit;
   white-space: pre-wrap;
   overflow-wrap: break-word;
+}
+.lesson-page .step-content-markdown :not(pre) > code {
+  font-family: ui-monospace, "SF Mono", "Consolas", "Liberation Mono", Menlo, monospace;
+  font-size: 0.9em;
+  padding: 0.15em 0.4em;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.lesson-page .step-content-markdown a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.lesson-page .step-content-markdown a:hover {
+  text-decoration: underline;
+}
+.lesson-page .step-content-markdown strong {
+  font-weight: 700;
+}
+.lesson-page .step-content-markdown h1,
+.lesson-page .step-content-markdown h2,
+.lesson-page .step-content-markdown h3,
+.lesson-page .step-content-markdown h4 {
+  margin: 1rem 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.lesson-page .step-content-markdown h1:first-child,
+.lesson-page .step-content-markdown h2:first-child,
+.lesson-page .step-content-markdown h3:first-child,
+.lesson-page .step-content-markdown h4:first-child {
+  margin-top: 0;
 }
 
 .lesson-page .checklist ul {
@@ -1017,6 +1228,104 @@ body {
 .lesson-chat-send:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Lesson comments */
+.lesson-comments {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+.lesson-comments h2 {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  color: var(--text);
+}
+.lesson-comments-loading,
+.lesson-comments-empty {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  margin: 0;
+}
+.lesson-comments-error {
+  color: #fca5a5;
+  font-size: 0.9rem;
+  margin: 0 0 0.75rem;
+}
+.lesson-comments-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem;
+}
+.lesson-comments-item {
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--accent);
+}
+.lesson-comments-meta {
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.lesson-comments-delete {
+  margin-left: auto;
+  font-size: 0.85rem;
+  padding: 0.25rem 0.5rem;
+}
+.lesson-comments-author {
+  font-weight: 600;
+  color: var(--text);
+}
+.lesson-comments-date {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.lesson-comments-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+.lesson-comments-form {
+  margin-top: 1rem;
+}
+.lesson-comments-input {
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  font-size: 1rem;
+  font-family: inherit;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  resize: vertical;
+  min-height: 4rem;
+  box-sizing: border-box;
+}
+.lesson-comments-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.lesson-comments-input::placeholder {
+  color: var(--text-muted);
+}
+.lesson-comments-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+.lesson-comments-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.lesson-comments-login {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  margin: 0;
 }
 
 /* Module page */

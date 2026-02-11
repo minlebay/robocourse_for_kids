@@ -15,6 +15,3 @@ VALUES
 INSERT INTO lesson_materials (id, lesson_id, kind, url_or_path, title)
 VALUES (gen_random_uuid(), 'b0000007-0000-0000-0000-000000000001', 'simulator', 'led-blink', 'Тренажёр: мигающий светодиод');
 INSERT INTO lesson_tags (lesson_id, tag) VALUES ('b0000007-0000-0000-0000-000000000001', 'raspberry_pi');
-
-INSERT INTO lesson_materials (id, lesson_id, kind, url_or_path, title)
-VALUES (gen_random_uuid(), 'b0000006-0000-0000-0000-000000000001', 'simulator', 'led-blink', 'Нет платы? Попробуй в тренажёре');

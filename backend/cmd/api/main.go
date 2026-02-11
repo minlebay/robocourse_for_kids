@@ -12,6 +12,7 @@ import (
 	"learn_kids/backend/internal/config"
 	"learn_kids/backend/internal/db"
 	"learn_kids/backend/internal/domain/chat"
+	"learn_kids/backend/internal/domain/comments"
 	"learn_kids/backend/internal/domain/lessons"
 	"learn_kids/backend/internal/domain/progress"
 	"learn_kids/backend/internal/domain/users"
@@ -38,6 +39,7 @@ func main() {
 		Users:     users.NewHandler(users.NewRepo(pool), cfg.JWTSecret),
 		Progress:  progress.NewHandler(progress.NewRepo(pool)),
 		Chat:      chat.NewHandler(cfg.GeminiAPIKey),
+		Comments:  comments.NewHandler(comments.NewRepo(pool)),
 		JWTSecret: cfg.JWTSecret,
 	})
 

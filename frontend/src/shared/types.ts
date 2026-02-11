@@ -62,3 +62,12 @@ export interface UserProgress {
   lessons: LessonProgressItem[]
   checklist: { checklist_item_id: string; completed_at?: string }[]
 }
+
+export interface LessonComment {
+  id: string
+  lesson_id: string
+  user_id: string
+  user_name: string
+  text: string
+  created_at: string
+}

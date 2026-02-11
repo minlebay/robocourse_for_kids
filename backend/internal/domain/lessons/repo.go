@@ -2,6 +2,9 @@ package lessons
 
 import (
 	"context"
+	"errors"
+	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -198,4 +201,60 @@ func (r *Repo) getChecklistByLessonID(ctx context.Context, lessonID uuid.UUID) (
 		list = append(list, c)
 	}
 	return list, rows.Err()
+}
+
+// UpdateLesson updates lesson title and description. If steps is not nil, replaces all steps for the lesson.
+func (r *Repo) UpdateLesson(ctx context.Context, id uuid.UUID, title, description *string, steps []LessonStep) (*Lesson, error) {
+	if title != nil || description != nil {
+		if title != nil && *title == "" {
+			return nil, errors.New("title must not be empty")
+		}
+		// Build dynamic update
+		updates := []string{}
+		args := []interface{}{id}
+		pos := 2
+		if title != nil {
+			updates = append(updates, "title = $"+strconv.Itoa(pos))
+			args = append(args, *title)
+			pos++
+		}
+		if description != nil {
+			updates = append(updates, "description = $"+strconv.Itoa(pos))
+			args = append(args, *description)
+			pos++
+		}
+		if len(updates) > 0 {
+			query := "UPDATE lessons SET " + strings.Join(updates, ", ") + " WHERE id = $1"
+			_, err := r.pool.Exec(ctx, query, args...)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	if steps != nil {
+		if _, err := r.pool.Exec(ctx, "DELETE FROM lesson_steps WHERE lesson_id = $1", id); err != nil {
+			return nil, err
+		}
+		for i, s := range steps {
+			sortOrder := i
+			if s.SortOrder > 0 {
+				sortOrder = s.SortOrder
+			}
+			stepID := uuid.New()
+			_, err := r.pool.Exec(ctx,
+				"INSERT INTO lesson_steps (id, lesson_id, title, content, sort_order) VALUES ($1, $2, $3, $4, $5)",
+				stepID, id, s.Title, nullIfEmpty(s.Content), sortOrder)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return r.GetLessonByID(ctx, id)
+}
+
+func nullIfEmpty(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	return s
 }

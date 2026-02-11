@@ -3,6 +3,7 @@ package lessons
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -78,6 +79,50 @@ func (h *Handler) GetLesson(c *gin.Context) {
 	}
 	if lesson == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "lesson not found"})
+		return
+	}
+	c.JSON(http.StatusOK, lesson)
+}
+
+// UpdateLessonRequest body for PUT /lessons/:id (teacher only).
+type UpdateLessonRequest struct {
+	Title       *string       `json:"title"`
+	Description *string       `json:"description"`
+	Steps       *[]LessonStep `json:"steps"`
+}
+
+func (h *Handler) UpdateLesson(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid lesson id"})
+		return
+	}
+	var body UpdateLessonRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body: " + err.Error()})
+		return
+	}
+	if body.Title != nil && *body.Title == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "title must not be empty"})
+		return
+	}
+	var steps []LessonStep
+	if body.Steps != nil {
+		steps = *body.Steps
+		for i, s := range steps {
+			if s.Title == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "step " + strconv.Itoa(i+1) + " title must not be empty"})
+				return
+			}
+		}
+	}
+	lesson, err := h.repo.UpdateLesson(c.Request.Context(), id, body.Title, body.Description, steps)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "lesson not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, lesson)
