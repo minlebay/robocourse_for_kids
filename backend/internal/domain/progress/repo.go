@@ -17,9 +17,10 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 
 func (r *Repo) GetProgress(ctx context.Context, userID uuid.UUID) (*UserProgress, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT lesson_id, status, updated_at
-		FROM user_lesson_progress
-		WHERE user_id = $1`, userID)
+		SELECT ulp.lesson_id, l.title, l.module_id, ulp.status, ulp.updated_at
+		FROM user_lesson_progress ulp
+		JOIN lessons l ON l.id = ulp.lesson_id
+		WHERE ulp.user_id = $1`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +28,7 @@ func (r *Repo) GetProgress(ctx context.Context, userID uuid.UUID) (*UserProgress
 	var lessons []LessonProgress
 	for rows.Next() {
 		var lp LessonProgress
-		if err := rows.Scan(&lp.LessonID, &lp.Status, &lp.UpdatedAt); err != nil {
+		if err := rows.Scan(&lp.LessonID, &lp.LessonTitle, &lp.ModuleID, &lp.Status, &lp.UpdatedAt); err != nil {
 			return nil, err
 		}
 		lessons = append(lessons, lp)

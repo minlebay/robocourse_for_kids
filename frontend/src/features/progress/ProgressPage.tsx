@@ -3,6 +3,12 @@ import { Link } from 'react-router-dom'
 import { progress as progressApi } from '../../shared/api'
 import type { UserProgress } from '../../shared/types'
 
+const statusLabels: Record<string, string> = {
+  not_started: 'Не начат',
+  in_progress: 'В процессе',
+  completed: 'Выполнен',
+}
+
 export function ProgressPage() {
   const [progress, setProgress] = useState<UserProgress | null>(null)
   const [loading, setLoading] = useState(true)
@@ -33,9 +39,9 @@ export function ProgressPage() {
           {progress.lessons.map((l) => (
             <li key={l.lesson_id}>
               <Link to={`/lessons/${l.lesson_id}`}>
-                Урок {l.lesson_id.slice(0, 8)}…
+                {l.lesson_title || `Урок ${l.lesson_id.slice(0, 8)}…`}
               </Link>
-              — {l.status}
+              {' — '}{statusLabels[l.status] ?? l.status}
             </li>
           ))}
         </ul>

@@ -26,6 +26,7 @@
 | PUT | /api/v1/lessons/:id/progress | Статус по уроку | JWT |
 | PUT | /api/v1/lessons/:id/checklist/:itemId | Пункт чек-листа | JWT |
 | GET | /api/v1/users | Список пользователей | JWT, teacher |
+| DELETE | /api/v1/users/:id | Удалить пользователя (не себя) | JWT, teacher |
 | GET | /api/v1/users/:id/progress | Прогресс ученика | JWT, teacher |
 
 ## Форматы

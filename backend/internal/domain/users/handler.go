@@ -20,10 +20,13 @@ func NewHandler(repo *Repo, jwtSecret string) *Handler {
 	return &Handler{repo: repo, jwtKey: []byte(jwtSecret)}
 }
 
+var validThemes = map[string]bool{"default": true, "light": true, "cyberpunk": true}
+
 func (h *Handler) Register(r *gin.RouterGroup) {
 	r.POST("/auth/register", h.RegisterUser)
 	r.POST("/auth/login", h.Login)
 	r.GET("/auth/me", h.Me)
+	r.PATCH("/auth/me", h.UpdateMe)
 	r.GET("/users", h.RequireTeacher, h.ListUsers)
 }
 
@@ -110,7 +113,7 @@ func (h *Handler) Login(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid login or password"})
 		return
 	}
-	user := &User{ID: u.ID, Login: u.Login, Name: u.Name, Role: u.Role, CreatedAt: u.CreatedAt}
+	user := &User{ID: u.ID, Login: u.Login, Name: u.Name, Role: u.Role, Theme: u.Theme, CreatedAt: u.CreatedAt}
 	token, err := h.generateToken(user.ID, user.Role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create token"})
@@ -133,6 +136,37 @@ func (h *Handler) Me(c *gin.Context) {
 	c.JSON(http.StatusOK, u)
 }
 
+type UpdateMeRequest struct {
+	Theme string `json:"theme"`
+}
+
+func (h *Handler) UpdateMe(c *gin.Context) {
+	uid, exists := c.Get("user_id")
+	if !exists || uid == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	var req UpdateMeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if req.Theme == "" || !validThemes[req.Theme] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "theme must be one of: default, light, cyberpunk"})
+		return
+	}
+	if err := h.repo.UpdateTheme(c.Request.Context(), uid.(uuid.UUID), req.Theme); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	u, err := h.repo.GetByID(c.Request.Context(), uid.(uuid.UUID))
+	if err != nil || u == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "user not found after update"})
+		return
+	}
+	c.JSON(http.StatusOK, u)
+}
+
 func (h *Handler) ListUsers(c *gin.Context) {
 	list, err := h.repo.List(c.Request.Context())
 	if err != nil {
@@ -140,5 +174,37 @@ func (h *Handler) ListUsers(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, list)
+}
+
+func (h *Handler) DeleteUser(c *gin.Context) {
+	ctx := c.Request.Context()
+	uid, exists := c.Get("user_id")
+	if !exists || uid == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	currentID := uid.(uuid.UUID)
+
+	targetID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	if currentID == targetID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "cannot delete yourself"})
+		return
+	}
+
+	deleted, err := h.repo.Delete(ctx, targetID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if !deleted {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 

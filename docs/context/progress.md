@@ -8,7 +8,7 @@
 
 ## Контракт API
 
-- `GET /api/v1/progress` — прогресс текущего пользователя (требуется авторизация).
+- `GET /api/v1/progress` — прогресс текущего пользователя (требуется авторизация). В каждом элементе lessons: lesson_id, lesson_title, module_id, status, updated_at (для подсказки «Продолжить» в шапке).
 - `PUT /api/v1/lessons/:id/progress` — тело: `{ "status": "not_started" | "in_progress" | "completed" }`.
 - `PUT /api/v1/lessons/:id/checklist/:itemId` — тело: `{ "completed": true|false }` (по умолчанию true).
 

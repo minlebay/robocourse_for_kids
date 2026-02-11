@@ -4,14 +4,15 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"learn_kids/backend/internal/domain/chat"
 	"learn_kids/backend/internal/domain/comments"
 	"learn_kids/backend/internal/domain/lessons"
 	"learn_kids/backend/internal/domain/progress"
 	"learn_kids/backend/internal/domain/users"
 	"learn_kids/backend/internal/middleware"
+
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Server struct {
@@ -81,6 +82,7 @@ func (s *Server) routes() {
 
 	// Auth required from here for some routes
 	api.GET("/auth/me", s.requireAuth, s.users.Me)
+	api.PATCH("/auth/me", s.requireAuth, s.users.UpdateMe)
 	api.GET("/progress", s.requireAuth, s.progress.GetProgress)
 	api.PUT("/lessons/:id/progress", s.requireAuth, s.progress.SetLessonProgress)
 	api.PUT("/lessons/:id/checklist/:itemId", s.requireAuth, s.progress.SetChecklistItem)
@@ -90,6 +92,7 @@ func (s *Server) routes() {
 
 	// Teacher only
 	api.GET("/users", s.requireTeacher, s.users.ListUsers)
+	api.DELETE("/users/:id", s.requireTeacher, s.users.DeleteUser)
 	api.GET("/users/:id/progress", s.requireTeacher, s.progress.GetUserProgress)
 
 	// Frontend static (optional: serve from ./web when present, e.g. in Docker)

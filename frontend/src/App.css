@@ -122,6 +122,17 @@ body {
   opacity: 0.95;
 }
 
+.header-resume-hint {
+  font-size: 0.9rem;
+  opacity: 0.9;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.1);
+}
+.header-resume-hint:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
 .header a:hover {
   opacity: 1;
   text-decoration: underline;
@@ -1589,17 +1600,45 @@ body {
   padding-left: 0;
 }
 
+.parent-dashboard .user-list .user-list-item {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+  margin: 0.35rem 0;
+}
+
+.parent-dashboard .user-list .user-list-item > button:first-child {
+  flex: 1;
+}
+
 .parent-dashboard .user-list button {
   width: 100%;
   text-align: left;
   padding: 0.75rem 1rem;
-  margin: 0.35rem 0;
   cursor: pointer;
   border: 2px solid var(--border);
   background: var(--bg-card);
+  color: var(--text);
   border-radius: var(--radius-sm);
   font-family: inherit;
   font-weight: 600;
+}
+
+.parent-dashboard .user-list .user-delete-btn {
+  flex: 0 0 auto;
+  width: 2.5rem;
+  padding: 0 0.5rem;
+  min-width: unset;
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.parent-dashboard .user-list .user-delete-btn:hover:not(:disabled) {
+  color: var(--error, #c0392b);
+}
+
+.parent-dashboard .user-list .user-delete-btn:disabled {
+  cursor: not-allowed;
 }
 
 .parent-dashboard .user-list button.active {

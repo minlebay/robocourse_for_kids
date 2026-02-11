@@ -24,15 +24,15 @@ func (r *Repo) Create(ctx context.Context, login, passwordHash, name, role strin
 	if err != nil {
 		return nil, err
 	}
-	return &User{ID: id, Login: login, Name: name, Role: role}, nil
+	return &User{ID: id, Login: login, Name: name, Role: role, Theme: "default"}, nil
 }
 
 func (r *Repo) GetByLogin(ctx context.Context, login string) (*UserWithPassword, error) {
 	row := r.pool.QueryRow(ctx, `
-		SELECT id, login, password_hash, name, role, created_at
+		SELECT id, login, password_hash, name, role, COALESCE(theme, 'default'), created_at
 		FROM users WHERE login = $1`, login)
 	var u UserWithPassword
-	err := row.Scan(&u.ID, &u.Login, &u.PasswordHash, &u.Name, &u.Role, &u.CreatedAt)
+	err := row.Scan(&u.ID, &u.Login, &u.PasswordHash, &u.Name, &u.Role, &u.Theme, &u.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -41,10 +41,10 @@ func (r *Repo) GetByLogin(ctx context.Context, login string) (*UserWithPassword,
 
 func (r *Repo) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	row := r.pool.QueryRow(ctx, `
-		SELECT id, login, name, role, created_at
+		SELECT id, login, name, role, COALESCE(theme, 'default'), created_at
 		FROM users WHERE id = $1`, id)
 	var u User
-	err := row.Scan(&u.ID, &u.Login, &u.Name, &u.Role, &u.CreatedAt)
+	err := row.Scan(&u.ID, &u.Login, &u.Name, &u.Role, &u.Theme, &u.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func (r *Repo) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 
 func (r *Repo) List(ctx context.Context) ([]User, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, login, name, role, created_at
+		SELECT id, login, name, role, COALESCE(theme, 'default'), created_at
 		FROM users ORDER BY created_at`)
 	if err != nil {
 		return nil, err
@@ -62,10 +62,23 @@ func (r *Repo) List(ctx context.Context) ([]User, error) {
 	var list []User
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.Login, &u.Name, &u.Role, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Login, &u.Name, &u.Role, &u.Theme, &u.CreatedAt); err != nil {
 			return nil, err
 		}
 		list = append(list, u)
 	}
 	return list, rows.Err()
+}
+
+func (r *Repo) Delete(ctx context.Context, id uuid.UUID) (bool, error) {
+	res, err := r.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
+	if err != nil {
+		return false, err
+	}
+	return res.RowsAffected() > 0, nil
+}
+
+func (r *Repo) UpdateTheme(ctx context.Context, id uuid.UUID, theme string) error {
+	_, err := r.pool.Exec(ctx, `UPDATE users SET theme = $1 WHERE id = $2`, theme, id)
+	return err
 }

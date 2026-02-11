@@ -36,6 +36,11 @@ export const auth = {
       body: JSON.stringify(body),
     }),
   me: () => api<import('./types').User>('/auth/me'),
+  updateTheme: (theme: import('./types').ThemeId) =>
+    api<import('./types').User>('/auth/me', {
+      method: 'PATCH',
+      body: JSON.stringify({ theme }),
+    }),
 }
 
 export const modules = {
@@ -111,6 +116,8 @@ export const users = {
   list: () => api<import('./types').User[]>('/users'),
   progress: (userId: string) =>
     api<import('./types').UserProgress>(`/users/${userId}/progress`),
+  delete: (userId: string) =>
+    api<void>(`/users/${userId}`, { method: 'DELETE' }),
 }
 
 export interface ChatMessage {

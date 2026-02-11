@@ -13,9 +13,11 @@ const (
 )
 
 type LessonProgress struct {
-	LessonID  uuid.UUID `json:"lesson_id"`
-	Status    string    `json:"status"`
-	UpdatedAt time.Time `json:"updated_at"`
+	LessonID   uuid.UUID `json:"lesson_id"`
+	LessonTitle string   `json:"lesson_title,omitempty"`
+	ModuleID   uuid.UUID `json:"module_id,omitempty"`
+	Status     string    `json:"status"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 type ChecklistProgressItem struct {

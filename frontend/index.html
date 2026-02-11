@@ -13,7 +13,8 @@
     <div id="root"></div>
     <script>
       (function () {
-        var theme = localStorage.getItem('learn_kids_theme');
+        var theme;
+        try { theme = localStorage.getItem('learn_kids_theme'); } catch (e) { theme = null; }
         var vars = {
           default: {
             '--bg': '#0f172a', '--bg-card': '#1e293b', '--accent': '#e07c24',

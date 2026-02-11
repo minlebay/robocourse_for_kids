@@ -16,6 +16,7 @@ type User struct {
 	Login     string    `json:"login"`
 	Name      string    `json:"name"`
 	Role      string    `json:"role"`
+	Theme     string    `json:"theme,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
 

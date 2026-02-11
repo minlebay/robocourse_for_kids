@@ -1,8 +1,11 @@
+export type ThemeId = 'default' | 'light' | 'cyberpunk'
+
 export interface User {
   id: string
   login: string
   name: string
   role: 'student' | 'teacher'
+  theme?: ThemeId
   created_at: string
 }
 
@@ -54,6 +57,8 @@ export interface ChecklistItem {
 
 export interface LessonProgressItem {
   lesson_id: string
+  lesson_title?: string
+  module_id?: string
   status: 'not_started' | 'in_progress' | 'completed'
   updated_at: string
 }

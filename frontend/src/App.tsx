@@ -6,7 +6,7 @@ import { RegisterPage } from './features/auth/RegisterPage'
 import { CatalogPage } from './features/lessons/CatalogPage'
 import { ModulePage } from './features/lessons/ModulePage'
 import { LessonPage } from './features/lessons/LessonPage'
-import { ProgressPage } from './features/progress/ProgressPage'
+import { HeaderResumeHint, ProgressPage } from './features/progress'
 import { ParentDashboardPage } from './features/parent-dashboard/ParentDashboardPage'
 import './App.css'
 
@@ -21,6 +21,7 @@ function Layout({ children }: { children: React.ReactNode }) {
             <a href="/">Каталог</a>
             {user && (
               <>
+                <HeaderResumeHint />
                 <a href="/progress">Мой прогресс</a>
                 {user.role === 'teacher' && (
                   <a href="/dashboard">Дашборд</a>
@@ -92,13 +93,13 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <ThemeProvider>
-        <AuthProvider>
+      <AuthProvider>
+        <ThemeProvider>
           <Layout>
             <AppRoutes />
           </Layout>
-        </AuthProvider>
-      </ThemeProvider>
+        </ThemeProvider>
+      </AuthProvider>
     </BrowserRouter>
   )
 }
