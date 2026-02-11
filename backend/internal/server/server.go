@@ -67,9 +67,13 @@ func (s *Server) routes() {
 	api.POST("/auth/register", s.users.RegisterUser)
 	api.POST("/auth/login", s.users.Login)
 
-	// Lessons (public read; teacher can update)
+	// Lessons (public read; teacher can create/update)
 	s.lessons.Register(api)
 	api.PUT("/lessons/:id", s.requireAuth, s.requireTeacher, s.lessons.UpdateLesson)
+	api.DELETE("/lessons/:id", s.requireAuth, s.requireTeacher, s.lessons.DeleteLesson)
+	api.POST("/modules", s.requireAuth, s.requireTeacher, s.lessons.CreateModule)
+	api.DELETE("/modules/:id", s.requireAuth, s.requireTeacher, s.lessons.DeleteModule)
+	api.POST("/modules/:id/lessons", s.requireAuth, s.requireTeacher, s.lessons.CreateLesson)
 
 	// Comments (public read; auth required to post)
 	api.GET("/lessons/:id/comments", s.comments.List)

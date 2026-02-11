@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { lessons as lessonsApi, progress as progressApi, modules as modulesApi } from '../../shared/api'
@@ -27,7 +27,9 @@ export function LessonPage() {
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<EditForm | null>(null)
   const [saveError, setSaveError] = useState('')
+  const [deleting, setDeleting] = useState(false)
   const { user } = useAuth()
+  const navigate = useNavigate()
 
   const load = useCallback(() => {
     if (!id) return
@@ -62,9 +64,36 @@ export function LessonPage() {
   const toggleChecklist = useCallback(
     (itemId: string, completed: boolean) => {
       if (!id || !user) return
-      progressApi.setChecklist(id, itemId, completed).then(() => load())
+      if (!progress) {
+        progressApi.setChecklist(id, itemId, completed).then(() => load())
+        return
+      }
+      // Оптимистичное обновление — без перезагрузки страницы
+      setProgress((prev) => {
+        if (!prev) return prev
+        const checklist = prev.checklist ?? []
+        const existing = checklist.findIndex((c) => c.checklist_item_id === itemId)
+        let next: typeof checklist
+        if (existing >= 0) {
+          next = [...checklist]
+          if (completed) {
+            next[existing] = { ...next[existing], completed_at: new Date().toISOString() }
+          } else {
+            next[existing] = { ...next[existing], completed_at: undefined }
+          }
+        } else if (completed) {
+          next = [...checklist, { checklist_item_id: itemId, completed_at: new Date().toISOString() }]
+        } else {
+          next = checklist.filter((c) => c.checklist_item_id !== itemId)
+        }
+        return { ...prev, checklist: next }
+      })
+      progressApi.setChecklist(id, itemId, completed).catch((err) => {
+        setError(err.message)
+        load() // при ошибке — перезагружаем для восстановления состояния
+      })
     },
-    [id, user, load]
+    [id, user, progress, load]
   )
 
   const getLessonStatus = () => {
@@ -94,6 +123,19 @@ export function LessonPage() {
     setEditForm(null)
     setSaveError('')
   }, [])
+
+  const deleteLesson = useCallback(() => {
+    if (!id || !lesson || !user || deleting) return
+    if (!window.confirm(`Удалить урок «${lesson.title}»?`)) return
+    setDeleting(true)
+    lessonsApi
+      .delete(id)
+      .then(() => navigate(module_ ? `/modules/${module_.id}` : '/'))
+      .catch((err) => {
+        setSaveError(err.message)
+        setDeleting(false)
+      })
+  }, [id, lesson, user, deleting, module_, navigate])
 
   const saveLesson = useCallback(() => {
     if (!id || !editForm) return
@@ -243,6 +285,15 @@ export function LessonPage() {
         <div className="lesson-edit-bar">
           <button type="button" className="button-primary" onClick={startEditing}>
             Редактировать
+          </button>
+          <button
+            type="button"
+            className="button-danger-outline"
+            onClick={deleteLesson}
+            disabled={deleting}
+            title="Удалить урок"
+          >
+            {deleting ? '…' : 'Удалить урок'}
           </button>
         </div>
       )}

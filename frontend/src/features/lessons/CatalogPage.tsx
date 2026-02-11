@@ -1,21 +1,52 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { modules } from '../../shared/api'
+import { useAuth } from '../auth/AuthContext'
 import type { Module } from '../../shared/types'
 import { PageWithToc, type TocItem } from './PageWithToc'
 
 export function CatalogPage() {
+  const { user } = useAuth()
   const [list, setList] = useState<Module[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [createTitle, setCreateTitle] = useState('')
+  const [createDesc, setCreateDesc] = useState('')
+  const [createError, setCreateError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
+  const load = useCallback(() => {
     modules
       .list()
       .then(setList)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const handleCreate = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault()
+      if (!createTitle.trim() || submitting) return
+      setCreateError('')
+      setSubmitting(true)
+      modules
+        .create({ title: createTitle.trim(), description: createDesc.trim() || undefined })
+        .then((mod) => {
+          setList((prev) => [...prev, mod])
+          setCreateTitle('')
+          setCreateDesc('')
+          setShowCreateForm(false)
+        })
+        .catch((err) => setCreateError(err.message))
+        .finally(() => setSubmitting(false))
+    },
+    [createTitle, createDesc, submitting]
+  )
 
   if (loading) return <p>Загрузка...</p>
   if (error) return <p className="error">{error}</p>
@@ -32,6 +63,57 @@ export function CatalogPage() {
     <PageWithToc title="Каталог" items={tocItems}>
       <div className="catalog">
         <h1>Каталог уроков</h1>
+        {user?.role === 'teacher' && (
+          <div className="catalog-teacher-actions">
+            {!showCreateForm ? (
+              <button type="button" className="button-primary" onClick={() => setShowCreateForm(true)}>
+                Создать курс
+              </button>
+            ) : (
+              <form className="catalog-create-form" onSubmit={handleCreate}>
+                <h3>Новый курс</h3>
+                {createError && <p className="error">{createError}</p>}
+                <div className="form-group">
+                  <label htmlFor="module-title">Название</label>
+                  <input
+                    id="module-title"
+                    value={createTitle}
+                    onChange={(e) => setCreateTitle(e.target.value)}
+                    placeholder="Название курса"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="module-desc">Описание</label>
+                  <textarea
+                    id="module-desc"
+                    value={createDesc}
+                    onChange={(e) => setCreateDesc(e.target.value)}
+                    placeholder="Краткое описание (необязательно)"
+                    rows={2}
+                  />
+                </div>
+                <div className="form-actions">
+                  <button type="submit" className="button-primary" disabled={submitting}>
+                    Создать
+                  </button>
+                  <button
+                    type="button"
+                    className="button-secondary"
+                    onClick={() => {
+                      setShowCreateForm(false)
+                      setCreateTitle('')
+                      setCreateDesc('')
+                      setCreateError('')
+                    }}
+                  >
+                    Отмена
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
         <div className="module-list">
           {list.map((mod) => (
             <section key={mod.id} className="module-card">

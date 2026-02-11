@@ -9,8 +9,12 @@
 ## Контракт API
 
 - `GET /api/v1/modules` — список модулей. Query: `platform`, `tag` (опционально).
+- `POST /api/v1/modules` — создать курс (teacher). Тело: `{ "title", "description?", "sort_order?" }`.
+- `DELETE /api/v1/modules/:id` — удалить курс и все его уроки (teacher).
 - `GET /api/v1/modules/:id` — один модуль с вложенными уроками.
+- `POST /api/v1/modules/:id/lessons` — добавить урок в курс (teacher). Тело: `{ "title", "description?", "lesson_type?", "sort_order?", "steps?" }`.
 - `GET /api/v1/lessons/:id` — урок по id (включая шаги, материалы, теги, чек-лист).
+- `DELETE /api/v1/lessons/:id` — удалить урок (teacher).
 
 ## Связи
 

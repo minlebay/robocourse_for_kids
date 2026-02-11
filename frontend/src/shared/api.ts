@@ -44,10 +44,32 @@ export const modules = {
     return api<import('./types').Module[]>(`/modules${q ? `?${q}` : ''}`)
   },
   get: (id: string) => api<import('./types').Module>(`/modules/${id}`),
+  create: (body: { title: string; description?: string; sort_order?: number }) =>
+    api<import('./types').Module>('/modules', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  delete: (id: string) =>
+    api<void>(`/modules/${id}`, { method: 'DELETE' }),
+  createLesson: (
+    moduleId: string,
+    body: {
+      title: string
+      description?: string
+      lesson_type?: string
+      sort_order?: number
+      steps?: { title: string; content?: string }[]
+    }
+  ) =>
+    api<import('./types').Lesson>(`/modules/${moduleId}/lessons`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 }
 
 export const lessons = {
   get: (id: string) => api<import('./types').Lesson>(`/lessons/${id}`),
+  delete: (id: string) => api<void>(`/lessons/${id}`, { method: 'DELETE' }),
   getComments: (id: string) =>
     api<import('./types').LessonComment[]>(`/lessons/${id}/comments`),
   addComment: (id: string, text: string) =>

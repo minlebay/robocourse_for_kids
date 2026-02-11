@@ -116,8 +116,52 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/Module' }
+    post:
+      summary: Создать курс (только teacher)
+      tags: [lessons]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                sort_order: { type: integer }
+      responses:
+        '201':
+          description: Создан
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Module' }
+        '400':
+          description: Неверное тело запроса
+        '401':
+          description: Не авторизован
+        '403':
+          description: Только для учителя
 
   /modules/{id}:
+    delete:
+      summary: Удалить курс (только teacher)
+      tags: [lessons]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Удалено
+        '401':
+          description: Не авторизован
+        '403':
+          description: Только для учителя
+        '404':
+          description: Модуль не найден
     get:
       summary: Модуль по ID с вложенными уроками
       tags: [lessons]
@@ -132,6 +176,50 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Module' }
+        '404':
+          description: Модуль не найден
+
+  /modules/{id}/lessons:
+    post:
+      summary: Добавить урок в курс (только teacher)
+      tags: [lessons]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                lesson_type: { type: string, enum: [theory, practice, project], default: theory }
+                sort_order: { type: integer }
+                steps:
+                  type: array
+                  items:
+                    type: object
+                    required: [title]
+                    properties:
+                      title: { type: string }
+                      content: { type: string }
+      responses:
+        '201':
+          description: Создан
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lesson' }
+        '400':
+          description: Неверное тело запроса
+        '401':
+          description: Не авторизован
+        '403':
+          description: Только для учителя
         '404':
           description: Модуль не найден
 
@@ -222,6 +310,24 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Lesson' }
+        '404':
+          description: Урок не найден
+    delete:
+      summary: Удалить урок (только teacher)
+      tags: [lessons]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Удалено
+        '401':
+          description: Не авторизован
+        '403':
+          description: Только для учителя
         '404':
           description: Урок не найден
     put:

@@ -13,8 +13,12 @@
 | POST | /api/v1/auth/login | Вход | — |
 | GET | /api/v1/auth/me | Текущий пользователь | JWT |
 | GET | /api/v1/modules | Список модулей | — |
+| POST | /api/v1/modules | Создать курс | JWT, teacher |
+| DELETE | /api/v1/modules/:id | Удалить курс | JWT, teacher |
 | GET | /api/v1/modules/:id | Модуль с уроками | — |
+| POST | /api/v1/modules/:id/lessons | Добавить урок в курс | JWT, teacher |
 | GET | /api/v1/lessons/:id | Урок (шаги, материалы, чек-лист) | — |
+| DELETE | /api/v1/lessons/:id | Удалить урок | JWT, teacher |
 | GET | /api/v1/lessons/:id/comments | Список комментариев к уроку | — |
 | POST | /api/v1/lessons/:id/comments | Добавить комментарий | JWT |
 | DELETE | /api/v1/lessons/:id/comments/:commentId | Удалить свой комментарий | JWT |

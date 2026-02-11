@@ -329,6 +329,80 @@ body {
   color: var(--text);
 }
 
+.catalog-teacher-actions,
+.module-teacher-actions {
+  margin-bottom: 1.5rem;
+}
+.module-teacher-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+.catalog-create-form,
+.module-create-lesson-form {
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.catalog-create-form h3,
+.module-create-lesson-form h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+.catalog-create-form .form-group,
+.module-create-lesson-form .form-group {
+  margin-bottom: 1rem;
+}
+.catalog-create-form label,
+.module-create-lesson-form label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+.catalog-create-form input,
+.catalog-create-form textarea,
+.module-create-lesson-form input,
+.module-create-lesson-form textarea,
+.module-create-lesson-form select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--text);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+}
+.module-create-step {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--accent);
+}
+.module-create-step input,
+.module-create-step textarea {
+  display: block;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+.module-create-step .button-danger-outline {
+  margin-top: 0.5rem;
+}
+.catalog-create-form .form-actions,
+.module-create-lesson-form .form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
 .module-list {
   display: flex;
   flex-direction: column;
@@ -460,6 +534,10 @@ body {
 /* Кнопка и форма редактирования урока (teacher) */
 .lesson-edit-bar {
   margin-bottom: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
 }
 .lesson-edit-form {
   width: 100%;
@@ -1344,6 +1422,16 @@ body {
 
 .module-page .lesson-list li {
   margin: 0.6rem 0;
+}
+.module-page .lesson-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.module-page .lesson-list-delete {
+  font-size: 0.85rem;
+  padding: 0.25rem 0.5rem;
 }
 
 .module-page .lesson-list a {

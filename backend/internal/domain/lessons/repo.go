@@ -72,6 +72,93 @@ func (r *Repo) ListModules(ctx context.Context, platform, tag *string) ([]Module
 	return list, nil
 }
 
+func (r *Repo) CreateModule(ctx context.Context, title, description string, sortOrder int) (*Module, error) {
+	if sortOrder == 0 {
+		var maxOrder int
+		_ = r.pool.QueryRow(ctx, "SELECT COALESCE(MAX(sort_order), 0) + 1 FROM modules").Scan(&maxOrder)
+		sortOrder = maxOrder
+	}
+	var m Module
+	var desc *string
+	if description != "" {
+		desc = &description
+	}
+	err := r.pool.QueryRow(ctx, `
+		INSERT INTO modules (title, description, sort_order)
+		VALUES ($1, $2, $3)
+		RETURNING id, title, description, sort_order, created_at
+	`, title, desc, sortOrder).Scan(&m.ID, &m.Title, &m.Description, &m.SortOrder, &m.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
+}
+
+func (r *Repo) DeleteModule(ctx context.Context, id uuid.UUID) (deleted bool, err error) {
+	cmd, err := r.pool.Exec(ctx, "DELETE FROM modules WHERE id = $1", id)
+	if err != nil {
+		return false, err
+	}
+	return cmd.RowsAffected() > 0, nil
+}
+
+func (r *Repo) DeleteLesson(ctx context.Context, id uuid.UUID) (deleted bool, err error) {
+	cmd, err := r.pool.Exec(ctx, "DELETE FROM lessons WHERE id = $1", id)
+	if err != nil {
+		return false, err
+	}
+	return cmd.RowsAffected() > 0, nil
+}
+
+func (r *Repo) CreateLesson(ctx context.Context, moduleID uuid.UUID, title, description, lessonType string, sortOrder int, steps []LessonStep) (*Lesson, error) {
+	if title == "" {
+		return nil, errors.New("title must not be empty")
+	}
+	if lessonType == "" {
+		lessonType = "theory"
+	}
+	if lessonType != "theory" && lessonType != "practice" && lessonType != "project" {
+		return nil, errors.New("lesson_type must be theory, practice, or project")
+	}
+	if sortOrder == 0 {
+		var maxOrder int
+		_ = r.pool.QueryRow(ctx, "SELECT COALESCE(MAX(sort_order), 0) + 1 FROM lessons WHERE module_id = $1", moduleID).Scan(&maxOrder)
+		sortOrder = maxOrder
+	}
+	var l Lesson
+	var desc *string
+	if description != "" {
+		desc = &description
+	}
+	err := r.pool.QueryRow(ctx, `
+		INSERT INTO lessons (module_id, title, description, lesson_type, sort_order)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, module_id, title, description, lesson_type, sort_order, created_at
+	`, moduleID, title, desc, lessonType, sortOrder).Scan(&l.ID, &l.ModuleID, &l.Title, &l.Description, &l.LessonType, &l.SortOrder, &l.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	if steps != nil {
+		for i, s := range steps {
+			if s.Title == "" {
+				continue
+			}
+			so := i
+			if s.SortOrder > 0 {
+				so = s.SortOrder
+			}
+			_, err := r.pool.Exec(ctx,
+				"INSERT INTO lesson_steps (lesson_id, title, content, sort_order) VALUES ($1, $2, $3, $4)",
+				l.ID, s.Title, nullIfEmpty(s.Content), so)
+			if err != nil {
+				return nil, err
+			}
+		}
+		l.Steps, _ = r.getStepsByLessonID(ctx, l.ID)
+	}
+	return &l, nil
+}
+
 func (r *Repo) GetModuleByID(ctx context.Context, id uuid.UUID) (*Module, error) {
 	row := r.pool.QueryRow(ctx, `
 		SELECT id, title, description, sort_order, created_at
