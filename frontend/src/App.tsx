@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './features/auth/AuthContext'
+import { ThemeProvider, ThemeSelector } from './features/theme'
 import { LoginPage } from './features/auth/LoginPage'
 import { RegisterPage } from './features/auth/RegisterPage'
 import { CatalogPage } from './features/lessons/CatalogPage'
@@ -35,6 +36,7 @@ function Layout({ children }: { children: React.ReactNode }) {
                 <a href="/register">Регистрация</a>
               </>
             )}
+            <ThemeSelector />
           </nav>
         </header>
         <main className="main">{children}</main>
@@ -90,11 +92,13 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <Layout>
-          <AppRoutes />
-        </Layout>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <Layout>
+            <AppRoutes />
+          </Layout>
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   )
 }

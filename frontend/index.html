@@ -11,6 +11,39 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      (function () {
+        var theme = localStorage.getItem('learn_kids_theme');
+        var vars = {
+          default: {
+            '--bg': '#0f172a', '--bg-card': '#1e293b', '--accent': '#e07c24',
+            '--accent-hover': '#f59e0b', '--accent-soft': '#422006',
+            '--text': '#e2e8f0', '--text-muted': '#94a3b8', '--border': '#334155',
+            '--success': '#10b981', '--success-soft': '#064e3b',
+            '--header-bg': '#0f172a', '--header-text': '#f1f5f9', '--accent-on': '#ffffff'
+          },
+          light: {
+            '--bg': '#f1f5f9', '--bg-card': '#ffffff', '--accent': '#ea580c',
+            '--accent-hover': '#c2410c', '--accent-soft': '#fff7ed',
+            '--text': '#1e293b', '--text-muted': '#64748b', '--border': '#e2e8f0',
+            '--success': '#059669', '--success-soft': '#d1fae5',
+            '--header-bg': '#ffffff', '--header-text': '#1e293b', '--accent-on': '#ffffff'
+          },
+          cyberpunk: {
+            '--bg': '#0d0221', '--bg-card': '#1a0a2e', '--accent': '#00ff9f',
+            '--accent-hover': '#00d4ff', '--accent-soft': '#0d3d2e',
+            '--text': '#e0e0ff', '--text-muted': '#a78bfa', '--border': '#4c1d95',
+            '--success': '#00ff9f', '--success-soft': '#0d3d2e',
+            '--header-bg': '#0d0221', '--header-text': '#00ff9f', '--accent-on': '#0d0221'
+          }
+        };
+        var themeVars = vars[theme] || vars.default;
+        if (themeVars) {
+          var r = document.documentElement;
+          for (var k in themeVars) r.style.setProperty(k, themeVars[k]);
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
