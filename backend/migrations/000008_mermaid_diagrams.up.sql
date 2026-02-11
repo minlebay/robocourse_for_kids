@@ -1,3 +1,4 @@
+-- Replace /schematics/ SVG links with mermaid diagrams (schematics files removed)
 UPDATE lesson_materials
 SET kind = 'mermaid',
     url_or_path = E'flowchart TB\n  subgraph m["Микроконтроллер"]\n    A[Мини-компьютер на одной микросхеме]\n    B[Выполняет программу]\n    C[Управляет пинами: светодиоды, кнопки, моторы]\n  end'

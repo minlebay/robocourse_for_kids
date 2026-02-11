@@ -12,7 +12,6 @@ import (
 	"learn_kids/backend/internal/domain/progress"
 	"learn_kids/backend/internal/domain/users"
 	"learn_kids/backend/internal/middleware"
-	"learn_kids/backend/schematics"
 )
 
 type Server struct {
@@ -92,9 +91,6 @@ func (s *Server) routes() {
 	// Teacher only
 	api.GET("/users", s.requireTeacher, s.users.ListUsers)
 	api.GET("/users/:id/progress", s.requireTeacher, s.progress.GetUserProgress)
-
-	// Схемы всегда из встроенных в бинарник файлов (работает и в Docker, и локально)
-	s.engine.StaticFS("/schematics", http.FS(schematics.FS))
 
 	// Frontend static (optional: serve from ./web when present, e.g. in Docker)
 	if _, err := os.Stat("./web/index.html"); err == nil {

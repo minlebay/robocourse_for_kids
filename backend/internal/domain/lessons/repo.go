@@ -32,9 +32,13 @@ func (r *Repo) ListModules(ctx context.Context, platform, tag *string) ([]Module
 	var list []Module
 	for rows.Next() {
 		var m Module
-		err := rows.Scan(&m.ID, &m.Title, &m.Description, &m.SortOrder, &m.CreatedAt)
+		var desc *string
+		err := rows.Scan(&m.ID, &m.Title, &desc, &m.SortOrder, &m.CreatedAt)
 		if err != nil {
 			return nil, err
+		}
+		if desc != nil {
+			m.Description = *desc
 		}
 		// Filter by tag if needed (simplified: load all and filter in app, or join lesson_tags)
 		list = append(list, m)
@@ -83,13 +87,17 @@ func (r *Repo) CreateModule(ctx context.Context, title, description string, sort
 	if description != "" {
 		desc = &description
 	}
+	var outDesc *string
 	err := r.pool.QueryRow(ctx, `
 		INSERT INTO modules (title, description, sort_order)
 		VALUES ($1, $2, $3)
 		RETURNING id, title, description, sort_order, created_at
-	`, title, desc, sortOrder).Scan(&m.ID, &m.Title, &m.Description, &m.SortOrder, &m.CreatedAt)
+	`, title, desc, sortOrder).Scan(&m.ID, &m.Title, &outDesc, &m.SortOrder, &m.CreatedAt)
 	if err != nil {
 		return nil, err
+	}
+	if outDesc != nil {
+		m.Description = *outDesc
 	}
 	return &m, nil
 }
@@ -130,13 +138,17 @@ func (r *Repo) CreateLesson(ctx context.Context, moduleID uuid.UUID, title, desc
 	if description != "" {
 		desc = &description
 	}
+	var outDesc *string
 	err := r.pool.QueryRow(ctx, `
 		INSERT INTO lessons (module_id, title, description, lesson_type, sort_order)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, module_id, title, description, lesson_type, sort_order, created_at
-	`, moduleID, title, desc, lessonType, sortOrder).Scan(&l.ID, &l.ModuleID, &l.Title, &l.Description, &l.LessonType, &l.SortOrder, &l.CreatedAt)
+	`, moduleID, title, desc, lessonType, sortOrder).Scan(&l.ID, &l.ModuleID, &l.Title, &outDesc, &l.LessonType, &l.SortOrder, &l.CreatedAt)
 	if err != nil {
 		return nil, err
+	}
+	if outDesc != nil {
+		l.Description = *outDesc
 	}
 	if steps != nil {
 		for i, s := range steps {
@@ -164,9 +176,13 @@ func (r *Repo) GetModuleByID(ctx context.Context, id uuid.UUID) (*Module, error)
 		SELECT id, title, description, sort_order, created_at
 		FROM modules WHERE id = $1`, id)
 	var m Module
-	err := row.Scan(&m.ID, &m.Title, &m.Description, &m.SortOrder, &m.CreatedAt)
+	var modDesc *string
+	err := row.Scan(&m.ID, &m.Title, &modDesc, &m.SortOrder, &m.CreatedAt)
 	if err != nil {
 		return nil, err
+	}
+	if modDesc != nil {
+		m.Description = *modDesc
 	}
 	lessons, err := r.listLessonsByModuleID(ctx, id)
 	if err != nil {
@@ -187,9 +203,13 @@ func (r *Repo) listLessonsByModuleID(ctx context.Context, moduleID uuid.UUID) ([
 	var list []Lesson
 	for rows.Next() {
 		var l Lesson
-		err := rows.Scan(&l.ID, &l.ModuleID, &l.Title, &l.Description, &l.LessonType, &l.SortOrder, &l.CreatedAt)
+		var desc *string
+		err := rows.Scan(&l.ID, &l.ModuleID, &l.Title, &desc, &l.LessonType, &l.SortOrder, &l.CreatedAt)
 		if err != nil {
 			return nil, err
+		}
+		if desc != nil {
+			l.Description = *desc
 		}
 		list = append(list, l)
 	}
@@ -201,9 +221,13 @@ func (r *Repo) GetLessonByID(ctx context.Context, id uuid.UUID) (*Lesson, error)
 		SELECT id, module_id, title, description, lesson_type, sort_order, created_at
 		FROM lessons WHERE id = $1`, id)
 	var l Lesson
-	err := row.Scan(&l.ID, &l.ModuleID, &l.Title, &l.Description, &l.LessonType, &l.SortOrder, &l.CreatedAt)
+	var desc *string
+	err := row.Scan(&l.ID, &l.ModuleID, &l.Title, &desc, &l.LessonType, &l.SortOrder, &l.CreatedAt)
 	if err != nil {
 		return nil, err
+	}
+	if desc != nil {
+		l.Description = *desc
 	}
 	l.Steps, _ = r.getStepsByLessonID(ctx, id)
 	l.Materials, _ = r.getMaterialsByLessonID(ctx, id)
@@ -223,8 +247,12 @@ func (r *Repo) getStepsByLessonID(ctx context.Context, lessonID uuid.UUID) ([]Le
 	var list []LessonStep
 	for rows.Next() {
 		var s LessonStep
-		if err := rows.Scan(&s.ID, &s.LessonID, &s.Title, &s.Content, &s.SortOrder); err != nil {
+		var content *string
+		if err := rows.Scan(&s.ID, &s.LessonID, &s.Title, &content, &s.SortOrder); err != nil {
 			return nil, err
+		}
+		if content != nil {
+			s.Content = *content
 		}
 		list = append(list, s)
 	}
