@@ -51,3 +51,6 @@ temp/
 
 # Cursor
 .cursor/
+
+#nginx
+nginx/
