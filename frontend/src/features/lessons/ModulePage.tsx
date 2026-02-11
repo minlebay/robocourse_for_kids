@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { lessons as lessonsApi, modules } from '../../shared/api'
 import { useAuth } from '../auth/AuthContext'
 import type { Module } from '../../shared/types'
+import { MarkdownStepEditor } from './MarkdownStepEditor'
 import { PageWithToc, type TocItem } from './PageWithToc'
 
 export function ModulePage() {
@@ -196,11 +197,12 @@ export function ModulePage() {
                         onChange={(e) => updateStep(idx, 'title', e.target.value)}
                         placeholder={`Заголовок шага ${idx + 1}`}
                       />
-                      <textarea
+                      <MarkdownStepEditor
                         value={step.content}
-                        onChange={(e) => updateStep(idx, 'content', e.target.value)}
-                        placeholder="Контент (Markdown, необязательно)"
+                        onChange={(v) => updateStep(idx, 'content', v)}
                         rows={3}
+                        placeholder="Контент (Markdown, необязательно)"
+                        label=""
                       />
                       <button
                         type="button"

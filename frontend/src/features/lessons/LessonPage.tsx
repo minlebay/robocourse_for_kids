@@ -8,6 +8,8 @@ import { LedBlinkSimulator } from './LedBlinkSimulator'
 import { LessonChat } from './LessonChat'
 import { LessonComments } from './LessonComments'
 import { MermaidDiagram } from './MermaidDiagram'
+import { MarkdownStepEditor } from './MarkdownStepEditor'
+import { markdownComponents } from './YouTubeEmbed'
 import { PageWithToc, type TocItem } from './PageWithToc'
 import type { Lesson as LessonType, LessonMaterial, UserProgress, Module } from '../../shared/types'
 
@@ -330,11 +332,10 @@ export function LessonPage() {
                 />
               </div>
               <div className="form-group">
-                <label>Контент (Markdown)</label>
-                <textarea
-                  rows={6}
+                <MarkdownStepEditor
                   value={step.content}
-                  onChange={(e) => updateEditStep(idx, 'content', e.target.value)}
+                  onChange={(v) => updateEditStep(idx, 'content', v)}
+                  label="Контент (Markdown)"
                 />
               </div>
               <button
@@ -401,7 +402,7 @@ export function LessonPage() {
               <div key={step.id} className="step">
                 <h3>{step.title}</h3>
                 <div className="step-content step-content-markdown">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{step.content ?? ''}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{step.content ?? ''}</ReactMarkdown>
                 </div>
               </div>
             ))}

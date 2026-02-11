@@ -236,7 +236,8 @@ body {
 .content-with-toc--editing .lesson-edit-form .form-group input,
 .content-with-toc--editing .lesson-edit-form .form-group textarea,
 .content-with-toc--editing .lesson-edit-step input,
-.content-with-toc--editing .lesson-edit-step textarea {
+.content-with-toc--editing .lesson-edit-step textarea,
+.content-with-toc--editing .lesson-edit-step .markdown-step-editor textarea {
   width: 100% !important;
   max-width: none !important;
   min-width: 0;
@@ -386,11 +387,17 @@ body {
   border-radius: var(--radius-sm);
   border-left: 3px solid var(--accent);
 }
-.module-create-step input,
-.module-create-step textarea {
+.module-create-step input {
   display: block;
   width: 100%;
   margin-bottom: 0.5rem;
+}
+.module-create-step .markdown-step-editor {
+  margin-bottom: 0.5rem;
+}
+.module-create-step .markdown-step-editor textarea {
+  display: block;
+  width: 100%;
 }
 .module-create-step .button-danger-outline {
   margin-top: 0.5rem;
@@ -587,6 +594,48 @@ body {
   min-height: 4rem;
   resize: vertical;
 }
+.markdown-step-editor {
+  width: 100%;
+}
+.markdown-step-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0;
+  min-height: 2.5rem;
+}
+.markdown-step-editor-toolbar label {
+  margin: 0;
+  margin-right: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+.markdown-step-editor-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-right: 0.25rem;
+}
+.markdown-step-editor-buttons {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.5rem;
+}
+.markdown-insert-btn {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.markdown-insert-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.markdown-step-editor textarea {
+  display: block;
+  width: 100%;
+  min-height: 4rem;
+}
+
 .lesson-edit-step {
   margin: 1.25rem 0;
   padding: 1rem;
@@ -784,6 +833,29 @@ body {
 .lesson-page .step-content-markdown h3:first-child,
 .lesson-page .step-content-markdown h4:first-child {
   margin-top: 0;
+}
+.lesson-page .step-content-markdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  display: block;
+  margin: 0.75rem 0;
+}
+.lesson-page .step-content-markdown .youtube-embed {
+  margin: 1rem 0;
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+.lesson-page .step-content-markdown .youtube-embed iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
 }
 
 .lesson-page .checklist ul {
