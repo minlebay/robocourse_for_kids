@@ -8,6 +8,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"learn_kids/backend/internal/middleware"
 )
 
 const geminiAPIURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
@@ -20,6 +22,7 @@ type ChatMessage struct {
 
 // Request — тело запроса к нашему API.
 type Request struct {
+	LessonID      string        `json:"lesson_id"`       // id урока для сохранения истории
 	LessonContext string        `json:"lesson_context"` // промпт с ролью и текстом урока
 	Messages      []ChatMessage `json:"messages"`
 }
@@ -41,15 +44,22 @@ type geminiResponse struct {
 
 type Handler struct {
 	apiKey string
+	repo   *Repo
 }
 
-func NewHandler(apiKey string) *Handler {
-	return &Handler{apiKey: apiKey}
+func NewHandler(apiKey string, repo *Repo) *Handler {
+	return &Handler{apiKey: apiKey, repo: repo}
 }
 
 func (h *Handler) Chat(c *gin.Context) {
 	if h.apiKey == "" {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "чат с ИИ не настроен: отсутствует GEMINI_API_KEY"})
+		return
+	}
+
+	userID := middleware.UserID(c)
+	if userID == uuid.Nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
@@ -61,6 +71,21 @@ func (h *Handler) Chat(c *gin.Context) {
 	if len(req.Messages) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "нужно хотя бы одно сообщение"})
 		return
+	}
+
+	lessonID := uuid.Nil
+	if req.LessonID != "" {
+		if parsed, err := uuid.Parse(req.LessonID); err == nil {
+			lessonID = parsed
+		}
+	}
+
+	// сохраняем последнее сообщение пользователя для истории
+	if lessonID != uuid.Nil && h.repo != nil {
+		lastMsg := req.Messages[len(req.Messages)-1]
+		if lastMsg.Role == "user" {
+			_ = h.repo.Save(c.Request.Context(), userID, lessonID, "user", lastMsg.Text)
+		}
 	}
 
 	// system_instruction: роль + контекст урока
@@ -113,10 +138,60 @@ func (h *Handler) Chat(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "разбор ответа Gemini"})
 		return
 	}
-	if len(gemini.Candidates) == 0 || len(gemini.Candidates[0].Content.Parts) == 0 {
-		c.JSON(http.StatusOK, gin.H{"text": ""})
+	responseText := ""
+	if len(gemini.Candidates) > 0 && len(gemini.Candidates[0].Content.Parts) > 0 {
+		responseText = gemini.Candidates[0].Content.Parts[0].Text
+		// сохраняем ответ модели для истории
+		if lessonID != uuid.Nil && h.repo != nil {
+			_ = h.repo.Save(c.Request.Context(), userID, lessonID, "model", responseText)
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"text": responseText})
+}
+
+// GetHistory возвращает историю чата пользователя по уроку.
+func (h *Handler) GetHistory(c *gin.Context) {
+	userID := middleware.UserID(c)
+	if userID == uuid.Nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+	lessonID, err := uuid.Parse(c.Param("lessonId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid lesson id"})
+		return
+	}
+	list, err := h.repo.ListByUserAndLesson(c.Request.Context(), userID, lessonID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if list == nil {
+		list = []StoredMessage{}
+	}
+	messages := make([]ChatMessage, len(list))
+	for i, m := range list {
+		messages[i] = ChatMessage{Role: m.Role, Text: m.Text}
+	}
+	c.JSON(http.StatusOK, gin.H{"messages": messages})
+}
 
-	c.JSON(http.StatusOK, gin.H{"text": gemini.Candidates[0].Content.Parts[0].Text})
+// ClearHistory очищает историю чата пользователя по уроку.
+func (h *Handler) ClearHistory(c *gin.Context) {
+	userID := middleware.UserID(c)
+	if userID == uuid.Nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	lessonID, err := uuid.Parse(c.Param("lessonId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid lesson id"})
+		return
+	}
+	_, err = h.repo.DeleteByUserAndLesson(c.Request.Context(), userID, lessonID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
 }

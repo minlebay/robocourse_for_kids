@@ -38,7 +38,7 @@ func main() {
 		Lessons:   lessons.NewHandler(lessons.NewRepo(pool)),
 		Users:     users.NewHandler(users.NewRepo(pool), cfg.JWTSecret),
 		Progress:  progress.NewHandler(progress.NewRepo(pool)),
-		Chat:      chat.NewHandler(cfg.GeminiAPIKey),
+		Chat:      chat.NewHandler(cfg.GeminiAPIKey, chat.NewRepo(pool)),
 		Comments:  comments.NewHandler(comments.NewRepo(pool)),
 		JWTSecret: cfg.JWTSecret,
 	})

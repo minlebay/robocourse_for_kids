@@ -87,8 +87,10 @@ func (s *Server) routes() {
 	api.PUT("/lessons/:id/progress", s.requireAuth, s.progress.SetLessonProgress)
 	api.PUT("/lessons/:id/checklist/:itemId", s.requireAuth, s.progress.SetChecklistItem)
 
-	// Chat with Gemini (optional auth: works without login for kids)
-	api.POST("/chat", s.chat.Chat)
+	// Chat with Gemini (auth required)
+	api.POST("/chat", s.requireAuth, s.chat.Chat)
+	api.GET("/chat/:lessonId/history", s.requireAuth, s.chat.GetHistory)
+	api.DELETE("/chat/:lessonId/history", s.requireAuth, s.chat.ClearHistory)
 
 	// Teacher only
 	api.GET("/users", s.requireTeacher, s.users.ListUsers)

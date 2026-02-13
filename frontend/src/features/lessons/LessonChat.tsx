@@ -1,5 +1,6 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { chat as chatApi, type ChatMessage } from '../../shared/api'
+import { useAuth } from '../auth/AuthContext'
 import type { Lesson as LessonType } from '../../shared/types'
 
 const ROLE_PROMPT = `Ты — дружелюбный помощник по робототехнике для детей. Отвечай коротко и понятно, по делу урока. Помогай разобраться в шагах, коде и схемах. Если ребёнок спрашивает что-то не по теме урока, вежливо направь разговор к текущему уроку.`
@@ -53,14 +54,39 @@ interface SpeechRecognitionErrorEvent {
 }
 
 export function LessonChat({ lesson }: { lesson: LessonType }) {
+  const { user } = useAuth()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [loadingHistory, setLoadingHistory] = useState(true)
   const [error, setError] = useState('')
   const [isRecording, setIsRecording] = useState(false)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const transcriptRef = useRef('')
   const lessonContext = useRef(buildLessonContext(lesson)).current
+
+  useEffect(() => {
+    if (!user) {
+      setLoadingHistory(false)
+      return
+    }
+    chatApi
+      .getHistory(lesson.id)
+      .then((res) => setMessages(res.messages || []))
+      .catch(() => setMessages([]))
+      .finally(() => setLoadingHistory(false))
+  }, [user, lesson.id])
+
+  const clearChat = useCallback(async () => {
+    if (!user) return
+    setError('')
+    try {
+      await chatApi.clearHistory(lesson.id)
+      setMessages([])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось очистить чат')
+    }
+  }, [user, lesson.id])
 
   const send = useCallback(
     async (text: string) => {
@@ -73,7 +99,7 @@ export function LessonChat({ lesson }: { lesson: LessonType }) {
       setLoading(true)
       try {
         const history: ChatMessage[] = [...messages, userMessage]
-        const res = await chatApi.send(lessonContext, history)
+        const res = await chatApi.send(lesson.id, lessonContext, history)
         setMessages((prev) => [...prev, { role: 'model', text: res.text || '' }])
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Ошибка запроса')
@@ -82,7 +108,7 @@ export function LessonChat({ lesson }: { lesson: LessonType }) {
         setLoading(false)
       }
     },
-    [lessonContext, messages, loading]
+    [lesson.id, lessonContext, messages, loading]
   )
 
   const startVoice = useCallback(() => {
@@ -151,9 +177,30 @@ export function LessonChat({ lesson }: { lesson: LessonType }) {
 
   return (
     <section className="lesson-chat" aria-label="Чат с помощником по уроку">
-      <h2>Спроси у помощника</h2>
+      <div className="lesson-chat-header">
+        <h2>Спроси у помощника</h2>
+        {user && messages.length > 0 && (
+          <button
+            type="button"
+            className="lesson-chat-clear"
+            onClick={clearChat}
+            disabled={loading}
+            aria-label="Очистить чат"
+          >
+            Очистить чат
+          </button>
+        )}
+      </div>
       <div className="lesson-chat-messages">
-        {messages.length === 0 && (
+        {loadingHistory && (
+          <p className="lesson-chat-placeholder">Загрузка истории…</p>
+        )}
+        {!loadingHistory && messages.length === 0 && !user && (
+          <p className="lesson-chat-placeholder">
+            Войдите, чтобы общаться с помощником и сохранять историю чата.
+          </p>
+        )}
+        {!loadingHistory && messages.length === 0 && user && (
           <p className="lesson-chat-placeholder">
             Напиши вопрос по уроку или зажми кнопку микрофона и скажи команду голосом.
           </p>
@@ -176,11 +223,11 @@ export function LessonChat({ lesson }: { lesson: LessonType }) {
         <input
           type="text"
           className="lesson-chat-input"
-          placeholder="Введите вопрос..."
+          placeholder={user ? 'Введите вопрос...' : 'Войдите, чтобы отправить'}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send(input)}
-          disabled={loading}
+          onKeyDown={(e) => user && e.key === 'Enter' && !e.shiftKey && send(input)}
+          disabled={loading || !user}
           aria-label="Текст вопроса"
         />
         <button
@@ -188,15 +235,16 @@ export function LessonChat({ lesson }: { lesson: LessonType }) {
           className={`lesson-chat-voice ${isRecording ? 'recording' : ''}`}
           title="Зажми и говори — отпусти, чтобы вставить текст"
           aria-label="Голосовой ввод: зажми и говори"
+          disabled={!user}
           onPointerDown={(e) => {
             e.preventDefault()
-            startVoice()
+            if (user) startVoice()
           }}
           onPointerUp={stopVoice}
           onPointerLeave={stopVoice}
           onTouchStart={(e) => {
             e.preventDefault()
-            startVoice()
+            if (user) startVoice()
           }}
           onTouchEnd={(e) => {
             e.preventDefault()
@@ -213,7 +261,7 @@ export function LessonChat({ lesson }: { lesson: LessonType }) {
           type="button"
           className="lesson-chat-send"
           onClick={() => send(input)}
-          disabled={loading || !input.trim()}
+          disabled={loading || !input.trim() || !user}
           aria-label="Отправить"
         >
           Отправить

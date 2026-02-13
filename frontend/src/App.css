@@ -1282,10 +1282,40 @@ body {
   border-top: 1px solid var(--border);
 }
 
-.lesson-chat h2 {
-  font-size: 1.2rem;
+.lesson-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.lesson-chat-header h2 {
+  font-size: 1.2rem;
+  margin: 0;
   color: var(--text);
+}
+
+.lesson-chat-clear {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.lesson-chat-clear:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+.lesson-chat-clear:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .lesson-chat-messages {

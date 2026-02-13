@@ -126,9 +126,13 @@ export interface ChatMessage {
 }
 
 export const chat = {
-  send: (lessonContext: string, messages: ChatMessage[]) =>
+  send: (lessonId: string, lessonContext: string, messages: ChatMessage[]) =>
     api<{ text: string }>('/chat', {
       method: 'POST',
-      body: JSON.stringify({ lesson_context: lessonContext, messages }),
+      body: JSON.stringify({ lesson_id: lessonId, lesson_context: lessonContext, messages }),
     }),
+  getHistory: (lessonId: string) =>
+    api<{ messages: ChatMessage[] }>(`/chat/${lessonId}/history`),
+  clearHistory: (lessonId: string) =>
+    api<void>(`/chat/${lessonId}/history`, { method: 'DELETE' }),
 }
