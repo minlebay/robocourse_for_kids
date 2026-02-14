@@ -9,6 +9,7 @@ import (
 	"learn_kids/backend/internal/domain/lessons"
 	"learn_kids/backend/internal/domain/progress"
 	"learn_kids/backend/internal/domain/users"
+	"learn_kids/backend/internal/httplog"
 	"learn_kids/backend/internal/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -26,20 +27,25 @@ type Server struct {
 }
 
 type Deps struct {
-	Pool      *pgxpool.Pool
-	Lessons   *lessons.Handler
-	Users     *users.Handler
-	Progress  *progress.Handler
-	Chat      *chat.Handler
-	Comments  *comments.Handler
-	JWTSecret string
+	Pool            *pgxpool.Pool
+	Lessons         *lessons.Handler
+	Users           *users.Handler
+	Progress        *progress.Handler
+	Chat            *chat.Handler
+	Comments        *comments.Handler
+	JWTSecret       string
+	FrontendOrigin  string
 }
 
 func New(d Deps) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	engine := gin.New()
+	origin := d.FrontendOrigin
+	if origin == "" {
+		origin = "*"
+	}
 	engine.Use(gin.Recovery())
-	engine.Use(middleware.CORS())
+	engine.Use(middleware.CORS(origin))
 	engine.Use(middleware.RequestID())
 	engine.Use(gin.Logger())
 
@@ -117,7 +123,8 @@ func (s *Server) requireTeacher(c *gin.Context) {
 
 func (s *Server) health(c *gin.Context) {
 	if err := s.pool.Ping(c.Request.Context()); err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy", "error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})

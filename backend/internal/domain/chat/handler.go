@@ -3,16 +3,20 @@ package chat
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"learn_kids/backend/internal/httplog"
 	"learn_kids/backend/internal/middleware"
 )
 
 const geminiAPIURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+
+var geminiClient = &http.Client{Timeout: 60 * time.Second}
 
 // ChatMessage — одно сообщение в диалоге (user или model).
 type ChatMessage struct {
@@ -65,7 +69,7 @@ func (h *Handler) Chat(c *gin.Context) {
 
 	var req Request
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "неверное тело запроса: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 	if len(req.Messages) == 0 {
@@ -111,31 +115,37 @@ func (h *Handler) Chat(c *gin.Context) {
 
 	httpReq, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, geminiAPIURL+"?key="+h.apiKey, bytes.NewReader(raw))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "создание запроса к Gemini: " + err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(httpReq)
+	resp, err := geminiClient.Do(httpReq)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "запрос к Gemini: " + err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "AI service unavailable"})
 		return
 	}
 	defer resp.Body.Close()
 
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "чтение ответа Gemini"})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	if resp.StatusCode != http.StatusOK {
-		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("Gemini вернул %d: %s", resp.StatusCode, string(b))})
+		rid, _ := c.Get("request_id")
+		log.Printf("[%v] Gemini status %d: %s", rid, resp.StatusCode, string(b))
+		c.JSON(http.StatusBadGateway, gin.H{"error": "AI service error"})
 		return
 	}
 
 	var gemini geminiResponse
 	if err := json.Unmarshal(b, &gemini); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "разбор ответа Gemini"})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	responseText := ""
@@ -163,7 +173,8 @@ func (h *Handler) GetHistory(c *gin.Context) {
 	}
 	list, err := h.repo.ListByUserAndLesson(c.Request.Context(), userID, lessonID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	if list == nil {
@@ -190,7 +201,8 @@ func (h *Handler) ClearHistory(c *gin.Context) {
 	}
 	_, err = h.repo.DeleteByUserAndLesson(c.Request.Context(), userID, lessonID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.Status(http.StatusNoContent)

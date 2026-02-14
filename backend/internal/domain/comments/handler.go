@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"learn_kids/backend/internal/httplog"
 	"learn_kids/backend/internal/middleware"
 )
 
@@ -24,7 +25,8 @@ func (h *Handler) List(c *gin.Context) {
 	}
 	list, err := h.repo.ListByLesson(c.Request.Context(), lessonID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	if list == nil {
@@ -60,7 +62,8 @@ func (h *Handler) Create(c *gin.Context) {
 	}
 	comment, err := h.repo.Create(c.Request.Context(), lessonID, userID, text)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusCreated, comment)
@@ -84,7 +87,8 @@ func (h *Handler) Delete(c *gin.Context) {
 	}
 	deleted, err := h.repo.DeleteByIDAndUser(c.Request.Context(), commentID, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	if !deleted {

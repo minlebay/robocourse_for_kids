@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/joho/godotenv"
 	"learn_kids/backend/internal/config"
 	"learn_kids/backend/internal/db"
 	"learn_kids/backend/internal/domain/chat"
@@ -20,7 +21,15 @@ import (
 )
 
 func main() {
-	cfg := config.Load()
+	// Опционально загружаем .env (приоритет у уже установленных переменных ОС)
+	_ = godotenv.Load(".env")
+	_ = godotenv.Load("../.env")
+	_ = godotenv.Load("../../.env")
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("config: %v", err)
+	}
 
 	if err := db.RunMigrations(cfg.DatabaseURL); err != nil {
 		log.Fatalf("migrations: %v", err)
@@ -34,13 +43,14 @@ func main() {
 	defer pool.Close()
 
 	srv := server.New(server.Deps{
-		Pool:      pool,
-		Lessons:   lessons.NewHandler(lessons.NewRepo(pool)),
-		Users:     users.NewHandler(users.NewRepo(pool), cfg.JWTSecret),
-		Progress:  progress.NewHandler(progress.NewRepo(pool)),
-		Chat:      chat.NewHandler(cfg.GeminiAPIKey, chat.NewRepo(pool)),
-		Comments:  comments.NewHandler(comments.NewRepo(pool)),
-		JWTSecret: cfg.JWTSecret,
+		Pool:           pool,
+		Lessons:        lessons.NewHandler(lessons.NewRepo(pool)),
+		Users:          users.NewHandler(users.NewRepo(pool), cfg.JWTSecret),
+		Progress:       progress.NewHandler(progress.NewRepo(pool)),
+		Chat:           chat.NewHandler(cfg.GeminiAPIKey, chat.NewRepo(pool)),
+		Comments:       comments.NewHandler(comments.NewRepo(pool)),
+		JWTSecret:      cfg.JWTSecret,
+		FrontendOrigin: cfg.FrontendOrigin,
 	})
 
 	addr := ":" + cfg.Port

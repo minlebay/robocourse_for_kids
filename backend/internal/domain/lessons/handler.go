@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"learn_kids/backend/internal/httplog"
 )
 
 type Handler struct {
@@ -35,7 +36,8 @@ func (h *Handler) ListModules(c *gin.Context) {
 	}
 	list, err := h.repo.ListModules(c.Request.Context(), platform, tag)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, list)
@@ -53,7 +55,8 @@ func (h *Handler) GetModule(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "module not found"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	if mod == nil {
@@ -81,7 +84,8 @@ func (h *Handler) CreateModule(c *gin.Context) {
 	}
 	mod, err := h.repo.CreateModule(c.Request.Context(), req.Title, req.Description, req.SortOrder)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusCreated, mod)
@@ -95,7 +99,8 @@ func (h *Handler) DeleteModule(c *gin.Context) {
 	}
 	deleted, err := h.repo.DeleteModule(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	if !deleted {
@@ -113,7 +118,8 @@ func (h *Handler) DeleteLesson(c *gin.Context) {
 	}
 	deleted, err := h.repo.DeleteLesson(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	if !deleted {
@@ -162,7 +168,8 @@ func (h *Handler) CreateLesson(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "module not found"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusCreated, lesson)
@@ -180,7 +187,8 @@ func (h *Handler) GetLesson(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "lesson not found"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	if lesson == nil {
@@ -228,7 +236,8 @@ func (h *Handler) UpdateLesson(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "lesson not found"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, lesson)

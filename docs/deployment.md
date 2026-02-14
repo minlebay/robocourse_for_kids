@@ -65,7 +65,8 @@ sudo ufw status
 Сервис `api` загружает переменные из `.env` и `.test.env` (последний дополняет/перезаписывает). Файл `.test.env` должен существовать — создайте пустой (`touch .test.env`), если его нет.
 
 - `DATABASE_URL` — строка подключения к PostgreSQL. В docker compose для сервиса `api` по умолчанию используется `postgres://postgres:postgres@db:5432/learn_kids?sslmode=disable`.
-- `JWT_SECRET` — секрет для подписи JWT (обязательно смените в продакшене).
+- `JWT_SECRET` — секрет для подписи JWT (обязательно смените в продакшене). При `APP_ENV=production` API не стартует без заданного `JWT_SECRET`.
+- `APP_ENV` — окружение (например `production`); в production без `JWT_SECRET` старт блокируется.
 - `FRONTEND_ORIGIN` — разрешённый origin для CORS. Для доступа по IP укажите, например, `http://192.168.1.100:8888` (порт 8888 — порт Nginx).
 - `GEMINI_API_KEY` — ключ API Google Gemini для чата с ИИ в уроках. Добавьте в `.env` или `.test.env`. Без него чат недоступен.
 

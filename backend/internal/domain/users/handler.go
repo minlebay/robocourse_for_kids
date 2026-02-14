@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
+	"learn_kids/backend/internal/httplog"
 )
 
 type Handler struct {
@@ -21,14 +22,6 @@ func NewHandler(repo *Repo, jwtSecret string) *Handler {
 }
 
 var validThemes = map[string]bool{"default": true, "light": true, "cyberpunk": true}
-
-func (h *Handler) Register(r *gin.RouterGroup) {
-	r.POST("/auth/register", h.RegisterUser)
-	r.POST("/auth/login", h.Login)
-	r.GET("/auth/me", h.Me)
-	r.PATCH("/auth/me", h.UpdateMe)
-	r.GET("/users", h.RequireTeacher, h.ListUsers)
-}
 
 func (h *Handler) RequireTeacher(c *gin.Context) {
 	uid, exists := c.Get("user_id")
@@ -78,11 +71,13 @@ func (h *Handler) RegisterUser(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "login already exists"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	token, err := h.generateToken(user.ID, user.Role)
 	if err != nil {
+		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create token"})
 		return
 	}
@@ -106,7 +101,8 @@ func (h *Handler) Login(c *gin.Context) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid login or password"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(req.Password)); err != nil {
@@ -156,12 +152,14 @@ func (h *Handler) UpdateMe(c *gin.Context) {
 		return
 	}
 	if err := h.repo.UpdateTheme(c.Request.Context(), uid.(uuid.UUID), req.Theme); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	u, err := h.repo.GetByID(c.Request.Context(), uid.(uuid.UUID))
 	if err != nil || u == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "user not found after update"})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, u)
@@ -170,7 +168,8 @@ func (h *Handler) UpdateMe(c *gin.Context) {
 func (h *Handler) ListUsers(c *gin.Context) {
 	list, err := h.repo.List(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, list)
@@ -198,7 +197,8 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 
 	deleted, err := h.repo.Delete(ctx, targetID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	if !deleted {

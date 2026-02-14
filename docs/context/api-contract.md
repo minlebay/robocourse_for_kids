@@ -12,6 +12,7 @@
 | POST | /api/v1/auth/register | Регистрация | — |
 | POST | /api/v1/auth/login | Вход | — |
 | GET | /api/v1/auth/me | Текущий пользователь | JWT |
+| PATCH | /api/v1/auth/me | Обновить профиль (тема) | JWT |
 | GET | /api/v1/modules | Список модулей | — |
 | POST | /api/v1/modules | Создать курс | JWT, teacher |
 | DELETE | /api/v1/modules/:id | Удалить курс | JWT, teacher |

@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"learn_kids/backend/internal/db"
+	"learn_kids/backend/internal/domain/chat"
+	"learn_kids/backend/internal/domain/comments"
 	"learn_kids/backend/internal/domain/lessons"
 	"learn_kids/backend/internal/domain/progress"
 	"learn_kids/backend/internal/domain/users"
@@ -46,13 +48,17 @@ func TestMain(m *testing.M) {
 	if jwtSecret == "" {
 		jwtSecret = "test-jwt-secret"
 	}
+	geminiKey := os.Getenv("GEMINI_API_KEY")
 	testPool = &testDeps{
 		srv: New(Deps{
-			Pool:      pool,
-			Lessons:   lessons.NewHandler(lessons.NewRepo(pool)),
-			Users:     users.NewHandler(users.NewRepo(pool), jwtSecret),
-			Progress:  progress.NewHandler(progress.NewRepo(pool)),
-			JWTSecret: jwtSecret,
+			Pool:           pool,
+			Lessons:        lessons.NewHandler(lessons.NewRepo(pool)),
+			Users:          users.NewHandler(users.NewRepo(pool), jwtSecret),
+			Progress:       progress.NewHandler(progress.NewRepo(pool)),
+			Chat:           chat.NewHandler(geminiKey, chat.NewRepo(pool)),
+			Comments:       comments.NewHandler(comments.NewRepo(pool)),
+			JWTSecret:      jwtSecret,
+			FrontendOrigin: "http://localhost:5173",
 		}),
 	}
 	os.Exit(m.Run())

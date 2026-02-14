@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"learn_kids/backend/internal/httplog"
 	"learn_kids/backend/internal/middleware"
 )
 
@@ -16,13 +17,6 @@ func NewHandler(repo *Repo) *Handler {
 	return &Handler{repo: repo}
 }
 
-func (h *Handler) Register(r *gin.RouterGroup) {
-	r.GET("/progress", h.GetProgress)
-	r.PUT("/lessons/:id/progress", h.SetLessonProgress)
-	r.PUT("/lessons/:id/checklist/:itemId", h.SetChecklistItem)
-	r.GET("/users/:id/progress", h.GetUserProgress)
-}
-
 func (h *Handler) GetProgress(c *gin.Context) {
 	userID := middleware.UserID(c)
 	if userID == uuid.Nil {
@@ -31,7 +25,8 @@ func (h *Handler) GetProgress(c *gin.Context) {
 	}
 	progress, err := h.repo.GetProgress(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, progress)
@@ -58,7 +53,8 @@ func (h *Handler) SetLessonProgress(c *gin.Context) {
 		return
 	}
 	if err := h.repo.SetLessonProgress(c.Request.Context(), userID, lessonID, req.Status); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
@@ -70,7 +66,7 @@ func (h *Handler) SetChecklistItem(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-	_, err := uuid.Parse(c.Param("id"))
+	lessonID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid lesson id"})
 		return
@@ -78,6 +74,16 @@ func (h *Handler) SetChecklistItem(c *gin.Context) {
 	itemID, err := uuid.Parse(c.Param("itemId"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid checklist item id"})
+		return
+	}
+	ok, err := h.repo.ChecklistItemBelongsToLesson(c.Request.Context(), lessonID, itemID)
+	if err != nil {
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "checklist item does not belong to this lesson"})
 		return
 	}
 	// Request body: { "completed": true/false }
@@ -88,7 +94,8 @@ func (h *Handler) SetChecklistItem(c *gin.Context) {
 		req.Completed = true
 	}
 	if err := h.repo.SetChecklistItemCompleted(c.Request.Context(), userID, itemID, req.Completed); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
@@ -103,7 +110,8 @@ func (h *Handler) GetUserProgress(c *gin.Context) {
 	}
 	progress, err := h.repo.GetProgress(c.Request.Context(), targetID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, progress)

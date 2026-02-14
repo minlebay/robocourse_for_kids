@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 )
 
@@ -12,7 +13,8 @@ type Config struct {
 	GeminiAPIKey   string
 }
 
-func Load() *Config {
+// Load loads config from environment. Returns error if JWT_SECRET is not set in production.
+func Load() (*Config, error) {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -23,6 +25,9 @@ func Load() *Config {
 	}
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
+		if os.Getenv("APP_ENV") == "production" {
+			return nil, fmt.Errorf("JWT_SECRET must be set when APP_ENV=production")
+		}
 		jwtSecret = "dev-secret-change-in-production"
 	}
 	frontendOrigin := os.Getenv("FRONTEND_ORIGIN")
@@ -36,5 +41,5 @@ func Load() *Config {
 		JWTSecret:      jwtSecret,
 		FrontendOrigin: frontendOrigin,
 		GeminiAPIKey:   geminiAPIKey,
-	}
+	}, nil
 }

@@ -7,6 +7,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// ChecklistItemBelongsToLesson returns true if the checklist item belongs to the given lesson.
+func (r *Repo) ChecklistItemBelongsToLesson(ctx context.Context, lessonID, itemID uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM checklist_items WHERE id = $1 AND lesson_id = $2)`,
+		itemID, lessonID).Scan(&exists)
+	return exists, err
+}
+
 type Repo struct {
 	pool *pgxpool.Pool
 }

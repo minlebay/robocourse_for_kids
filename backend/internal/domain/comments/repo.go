@@ -17,11 +17,11 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 }
 
 type Comment struct {
-	ID        string `json:"id"`
-	LessonID  string `json:"lesson_id"`
-	UserID    string `json:"user_id"`
-	UserName  string `json:"user_name"`
-	Text      string `json:"text"`
+	ID        uuid.UUID `json:"id"`
+	LessonID  uuid.UUID `json:"lesson_id"`
+	UserID    uuid.UUID `json:"user_id"`
+	UserName  string    `json:"user_name"`
+	Text      string    `json:"text"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -54,13 +54,11 @@ func (r *Repo) Create(ctx context.Context, lessonID, userID uuid.UUID, text stri
 	err := r.pool.QueryRow(ctx, `
 		INSERT INTO lesson_comments (lesson_id, user_id, text)
 		VALUES ($1, $2, $3)
-		RETURNING id, lesson_id, user_id, text, created_at
-	`, lessonID, userID, text).Scan(&c.ID, &c.LessonID, &c.UserID, &c.Text, &c.CreatedAt)
+		RETURNING id, lesson_id, user_id, text, created_at,
+			(SELECT u.name FROM users u WHERE u.id = lesson_comments.user_id) AS user_name
+	`, lessonID, userID, text).Scan(&c.ID, &c.LessonID, &c.UserID, &c.Text, &c.CreatedAt, &c.UserName)
 	if err != nil {
 		return nil, err
-	}
-	if err := r.pool.QueryRow(ctx, `SELECT name FROM users WHERE id = $1`, userID).Scan(&c.UserName); err != nil {
-		c.UserName = ""
 	}
 	return &c, nil
 }
