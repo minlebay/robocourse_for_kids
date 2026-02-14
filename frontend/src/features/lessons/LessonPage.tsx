@@ -12,13 +12,17 @@ import { MarkdownStepEditor } from './MarkdownStepEditor'
 import { markdownComponents } from './YouTubeEmbed'
 import { PageWithToc, type TocItem } from './PageWithToc'
 import type { Lesson as LessonType, LessonMaterial, LessonStatus, UserProgress, Module } from '../../shared/types'
+import { getSafeUrl } from '../../shared/url'
+import { ConfirmModal } from '../../components'
 import { CourseNav } from './CourseNav'
 import { LessonProgressBar } from './LessonProgressBar'
+
+type EditStep = { id: string; title: string; content: string }
 
 type EditForm = {
   title: string
   description: string
-  steps: { title: string; content: string }[]
+  steps: EditStep[]
 }
 
 export function LessonPage() {
@@ -32,6 +36,7 @@ export function LessonPage() {
   const [editForm, setEditForm] = useState<EditForm | null>(null)
   const [saveError, setSaveError] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const { user } = useAuth()
   const navigate = useNavigate()
 
@@ -116,7 +121,7 @@ export function LessonPage() {
     setEditForm({
       title: lesson.title,
       description: lesson.description ?? '',
-      steps: steps.map((s) => ({ title: s.title, content: s.content ?? '' })),
+      steps: steps.map((s) => ({ id: s.id, title: s.title, content: s.content ?? '' })),
     })
     setEditing(true)
     setSaveError('')
@@ -128,9 +133,14 @@ export function LessonPage() {
     setSaveError('')
   }, [])
 
-  const deleteLesson = useCallback(() => {
+  const requestDeleteLesson = useCallback(() => {
     if (!id || !lesson || !user || deleting) return
-    if (!window.confirm(`Удалить урок «${lesson.title}»?`)) return
+    setConfirmDelete(true)
+  }, [id, lesson, user, deleting])
+
+  const doDeleteLesson = useCallback(() => {
+    if (!id || !user || deleting) return
+    setConfirmDelete(false)
     setDeleting(true)
     lessonsApi
       .delete(id)
@@ -139,7 +149,7 @@ export function LessonPage() {
         setSaveError(err.message)
         setDeleting(false)
       })
-  }, [id, lesson, user, deleting, module_, navigate])
+  }, [id, user, deleting, module_, navigate])
 
   const saveLesson = useCallback(() => {
     if (!id || !editForm) return
@@ -156,7 +166,7 @@ export function LessonPage() {
       .update(id, {
         title: editForm.title,
         description: editForm.description || undefined,
-        steps: editForm.steps.map((s, i) => ({ title: s.title, content: s.content, sort_order: i })),
+        steps: editForm.steps.map((s, i) => ({ title: s.title, content: s.content, sort_order: i })), // порядок по индексу в форме
       })
       .then((updated) => {
         setLesson(updated)
@@ -168,23 +178,26 @@ export function LessonPage() {
 
   const addStep = useCallback(() => {
     setEditForm((prev) =>
-      prev ? { ...prev, steps: [...prev.steps, { title: 'Новый шаг', content: '' }] } : prev
-    )
-  }, [])
-
-  const removeStep = useCallback((index: number) => {
-    setEditForm((prev) =>
-      prev && prev.steps.length > 1
-        ? { ...prev, steps: prev.steps.filter((_, i) => i !== index) }
+      prev
+        ? { ...prev, steps: [...prev.steps, { id: `new-${Date.now()}`, title: 'Новый шаг', content: '' }] }
         : prev
     )
   }, [])
 
-  const updateEditStep = useCallback((index: number, field: 'title' | 'content', value: string) => {
+  const removeStep = useCallback((stepId: string) => {
+    setEditForm((prev) =>
+      prev && prev.steps.length > 1
+        ? { ...prev, steps: prev.steps.filter((s) => s.id !== stepId) }
+        : prev
+    )
+  }, [])
+
+  const updateEditStep = useCallback((stepId: string, field: 'title' | 'content', value: string) => {
     setEditForm((prev) => {
       if (!prev) return prev
-      const steps = [...prev.steps]
-      steps[index] = { ...steps[index], [field]: value }
+      const steps = prev.steps.map((s) =>
+        s.id === stepId ? { ...s, [field]: value } : s
+      )
       return { ...prev, steps }
     })
   }, [])
@@ -220,13 +233,14 @@ export function LessonPage() {
         </li>
       )
     }
-    const isImage = /\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i.test(m.url_or_path)
-    if (m.kind === 'link' && isImage) {
+    const safeUrl = m.kind === 'link' ? getSafeUrl(m.url_or_path) : null
+    const isImage = safeUrl && /\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i.test(m.url_or_path)
+    if (m.kind === 'link' && isImage && safeUrl) {
       return (
         <li key={m.id}>
           <figure className="material-image">
-            <a href={m.url_or_path} target="_blank" rel="noreferrer">
-              <img src={m.url_or_path} alt={m.title || 'Иллюстрация'} loading="lazy" />
+            <a href={safeUrl} target="_blank" rel="noreferrer">
+              <img src={safeUrl} alt={m.title || 'Иллюстрация'} loading="lazy" />
             </a>
             {m.title && <figcaption>{m.title}</figcaption>}
           </figure>
@@ -235,8 +249,8 @@ export function LessonPage() {
     }
     return (
       <li key={m.id}>
-        {m.kind === 'link' ? (
-          <a href={m.url_or_path} target="_blank" rel="noreferrer">
+        {m.kind === 'link' && safeUrl ? (
+          <a href={safeUrl} target="_blank" rel="noreferrer">
             {m.title || m.url_or_path}
           </a>
         ) : (
@@ -266,7 +280,7 @@ export function LessonPage() {
           <button
             type="button"
             className="button-danger-outline"
-            onClick={deleteLesson}
+            onClick={requestDeleteLesson}
             disabled={deleting}
             title="Удалить урок"
           >
@@ -298,25 +312,25 @@ export function LessonPage() {
           </div>
           <h3>Шаги</h3>
           {editForm.steps.map((step, idx) => (
-            <div key={idx} className="lesson-edit-step">
+            <div key={step.id} className="lesson-edit-step">
               <div className="form-group">
                 <label>Заголовок шага {idx + 1}</label>
                 <input
                   value={step.title}
-                  onChange={(e) => updateEditStep(idx, 'title', e.target.value)}
+                  onChange={(e) => updateEditStep(step.id, 'title', e.target.value)}
                 />
               </div>
               <div className="form-group">
                 <MarkdownStepEditor
                   value={step.content}
-                  onChange={(v) => updateEditStep(idx, 'content', v)}
+                  onChange={(v) => updateEditStep(step.id, 'content', v)}
                   label="Контент (Markdown)"
                 />
               </div>
               <button
                 type="button"
                 className="button-danger-outline"
-                onClick={() => removeStep(idx)}
+                onClick={() => removeStep(step.id)}
                 disabled={editForm.steps.length <= 1}
               >
                 Удалить шаг
@@ -422,6 +436,16 @@ export function LessonPage() {
       items={tocItems}
       containerClassName={editing && editForm ? 'content-with-toc--editing' : undefined}
     >
+      <ConfirmModal
+        open={confirmDelete}
+        title="Удалить урок?"
+        confirmLabel="Удалить"
+        variant="danger"
+        onConfirm={doDeleteLesson}
+        onCancel={() => setConfirmDelete(false)}
+      >
+        {lesson ? `Удалить урок «${lesson.title}»?` : ''}
+      </ConfirmModal>
       {lessonContent}
     </PageWithToc>
   )

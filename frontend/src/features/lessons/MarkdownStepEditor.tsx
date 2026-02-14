@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { isSafeHttpUrl } from '../../shared/url'
 import { getYouTubeVideoId } from './YouTubeEmbed'
 
 type MarkdownStepEditorProps = {
@@ -38,6 +39,10 @@ export function MarkdownStepEditor({
   const insertImage = () => {
     const url = window.prompt('URL картинки:')
     if (!url?.trim()) return
+    if (!isSafeHttpUrl(url.trim())) {
+      window.alert('Допускаются только ссылки по протоколу http или https.')
+      return
+    }
     const alt = window.prompt('Описание (alt):', 'Изображение') ?? 'Изображение'
     insert(`\n\n![${alt}](${url.trim()})\n\n`)
   }
@@ -45,6 +50,10 @@ export function MarkdownStepEditor({
   const insertYouTube = () => {
     const url = window.prompt('Ссылка на YouTube (youtube.com или youtu.be):')
     if (!url?.trim()) return
+    if (!isSafeHttpUrl(url.trim())) {
+      window.alert('Допускаются только ссылки по протоколу http или https.')
+      return
+    }
     const videoId = getYouTubeVideoId(url.trim())
     if (!videoId) {
       window.alert('Укажите ссылку только с YouTube.')

@@ -76,15 +76,20 @@ func main() {
 		)
 	}
 
+	// Context cancelled on shutdown so rate limiter cleanup goroutines exit.
+	shutdownCtx, cancelShutdown := context.WithCancel(context.Background())
+	defer cancelShutdown()
+
 	srv := server.New(server.Deps{
-		Pool:           pool,
-		Lessons:        lessons.NewHandler(lessonsRepo),
-		Users:          users.NewHandler(users.NewRepo(pool), cfg.JWTSecret, cfg.TeacherInviteCode),
-		Progress:       progress.NewHandler(progress.NewRepo(pool)),
-		Chat:           chat.NewHandler(cfg.GeminiAPIKey, chat.NewRepo(pool), lessonContextFn),
-		Comments:       comments.NewHandler(comments.NewRepo(pool)),
-		JWTSecret:      cfg.JWTSecret,
-		FrontendOrigin: cfg.FrontendOrigin,
+		Pool:             pool,
+		Lessons:          lessons.NewHandler(lessonsRepo),
+		Users:            users.NewHandler(users.NewRepo(pool), cfg.JWTSecret, cfg.TeacherInviteCode),
+		Progress:         progress.NewHandler(progress.NewRepo(pool)),
+		Chat:             chat.NewHandler(cfg.GeminiAPIKey, chat.NewRepo(pool), lessonContextFn),
+		Comments:         comments.NewHandler(comments.NewRepo(pool)),
+		JWTSecret:        cfg.JWTSecret,
+		FrontendOrigin:   cfg.FrontendOrigin,
+		ShutdownContext:   shutdownCtx,
 	})
 
 	addr := ":" + cfg.Port
@@ -108,9 +113,11 @@ func main() {
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	<-quit
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+	cancelShutdown() // stop rate limiter cleanup goroutines
+
+	shutdownHTTPCtx, cancelHTTP := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelHTTP()
+	if err := httpSrv.Shutdown(shutdownHTTPCtx); err != nil {
 		slog.Error("graceful shutdown error", "error", err)
 	}
 	slog.Info("server stopped")

@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"sync"
 	"time"
@@ -22,13 +23,14 @@ type RateLimiter struct {
 }
 
 // NewRateLimiter creates a rate limiter: at most limit requests per window per IP.
-func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
+// If shutdown is not nil, the cleanup goroutine stops when shutdown is cancelled (e.g. on server shutdown).
+func NewRateLimiter(limit int, window time.Duration, shutdown context.Context) *RateLimiter {
 	rl := &RateLimiter{
 		entries: make(map[string]*ipEntry),
 		limit:   limit,
 		window:  window,
 	}
-	go rl.cleanup()
+	go rl.cleanup(shutdown)
 	return rl
 }
 
@@ -59,10 +61,11 @@ func (rl *RateLimiter) Handler() gin.HandlerFunc {
 }
 
 // cleanup periodically removes expired entries to prevent memory leaks.
-func (rl *RateLimiter) cleanup() {
+// If shutdown != nil, exits when shutdown is done (graceful server stop).
+func (rl *RateLimiter) cleanup(shutdown context.Context) {
 	ticker := time.NewTicker(rl.window)
 	defer ticker.Stop()
-	for range ticker.C {
+	doCleanup := func() {
 		rl.mu.Lock()
 		now := time.Now()
 		for ip, entry := range rl.entries {
@@ -71,5 +74,19 @@ func (rl *RateLimiter) cleanup() {
 			}
 		}
 		rl.mu.Unlock()
+	}
+	if shutdown == nil {
+		for range ticker.C {
+			doCleanup()
+		}
+		return
+	}
+	for {
+		select {
+		case <-ticker.C:
+			doCleanup()
+		case <-shutdown.Done():
+			return
+		}
 	}
 }

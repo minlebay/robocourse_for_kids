@@ -23,6 +23,8 @@ const (
 	MaxStepsPerLesson     = 200
 )
 
+var validLessonTypes = map[string]bool{"theory": true, "practice": true, "project": true}
+
 // Repository defines the data access interface for lessons and modules.
 type Repository interface {
 	ListModules(ctx context.Context, tag *string) ([]Module, error)
@@ -192,6 +194,10 @@ func (h *Handler) CreateLesson(c *gin.Context) {
 	}
 	if req.LessonType == "" {
 		req.LessonType = "theory"
+	}
+	if !validLessonTypes[req.LessonType] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "lesson_type must be theory, practice, or project"})
+		return
 	}
 	var steps []LessonStep
 	for _, s := range req.Steps {

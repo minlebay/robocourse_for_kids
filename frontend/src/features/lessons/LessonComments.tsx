@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { lessons as lessonsApi } from '../../shared/api'
 import { useAuth } from '../auth/AuthContext'
+import { COMMENT_MAX } from '../../shared/validation'
 import type { LessonComment } from '../../shared/types'
 
 function formatDate(iso: string): string {
@@ -44,8 +45,8 @@ export function LessonComments({ lessonId }: { lessonId: string }) {
       e.preventDefault()
       const trimmed = text.trim()
       if (!trimmed || !user || submitting) return
-      if (trimmed.length > 2000) {
-        setError('Комментарий не должен превышать 2000 символов')
+      if (trimmed.length > COMMENT_MAX) {
+        setError(`Комментарий не более ${COMMENT_MAX} символов`)
         return
       }
       setError('')
@@ -122,13 +123,13 @@ export function LessonComments({ lessonId }: { lessonId: string }) {
             onChange={(e) => setText(e.target.value)}
             placeholder="Напишите комментарий..."
             rows={2}
-            maxLength={2000}
+            maxLength={COMMENT_MAX}
             className="lesson-comments-input"
             disabled={submitting}
           />
           <div className="lesson-comments-actions">
             <span className="lesson-comments-hint">
-              {text.length}/2000
+              {text.length}/{COMMENT_MAX}
             </span>
             <button type="submit" className="button-primary" disabled={!text.trim() || submitting}>
               Отправить

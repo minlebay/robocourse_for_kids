@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -58,16 +59,20 @@ func TestMain(m *testing.M) {
 		return "Test system prompt"
 	}
 
+	shutdownCtx, cancelShutdown := context.WithCancel(context.Background())
+	defer cancelShutdown()
+
 	testPool = &testDeps{
 		srv: New(Deps{
-			Pool:           pool,
-			Lessons:        lessons.NewHandler(lessons.NewRepo(pool)),
-			Users:          users.NewHandler(users.NewRepo(pool), jwtSecret, inviteCode),
-			Progress:       progress.NewHandler(progress.NewRepo(pool)),
-			Chat:           chat.NewHandler(geminiKey, chat.NewRepo(pool), lessonCtxFn),
-			Comments:       comments.NewHandler(comments.NewRepo(pool)),
-			JWTSecret:      jwtSecret,
-			FrontendOrigin: "http://localhost:5173",
+			Pool:            pool,
+			Lessons:         lessons.NewHandler(lessons.NewRepo(pool)),
+			Users:           users.NewHandler(users.NewRepo(pool), jwtSecret, inviteCode),
+			Progress:        progress.NewHandler(progress.NewRepo(pool)),
+			Chat:            chat.NewHandler(geminiKey, chat.NewRepo(pool), lessonCtxFn),
+			Comments:        comments.NewHandler(comments.NewRepo(pool)),
+			JWTSecret:       jwtSecret,
+			FrontendOrigin:  "http://localhost:5173",
+			ShutdownContext: shutdownCtx,
 		}),
 	}
 	os.Exit(m.Run())
@@ -117,5 +122,122 @@ func TestListModules(t *testing.T) {
 	testPool.srv.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Errorf("GET /api/v1/modules: status = %d, want 200", rec.Code)
+	}
+}
+
+// registerAndLogin registers a new user and logs in, returns the JWT token.
+func registerAndLogin(t *testing.T) string {
+	t.Helper()
+	login := "testuser_" + uuid.New().String()[:8]
+	regBody := []byte(`{"login":"` + login + `","password":"pass123","name":"Test User","role":"student"}`)
+	regReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewReader(regBody))
+	regReq.Header.Set("Content-Type", "application/json")
+	regRec := httptest.NewRecorder()
+	testPool.srv.Handler().ServeHTTP(regRec, regReq)
+	if regRec.Code != http.StatusCreated {
+		t.Fatalf("register: status = %d, want 201; body = %s", regRec.Code, regRec.Body.String())
+	}
+	var regResp struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(regRec.Body.Bytes(), &regResp); err != nil {
+		t.Fatalf("parse register response: %v", err)
+	}
+	if regResp.Token == "" {
+		t.Fatal("register response missing token")
+	}
+	return regResp.Token
+}
+
+func TestAuthMe_WithoutToken_Returns401(t *testing.T) {
+	if testPool == nil {
+		t.Skip("no database")
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	rec := httptest.NewRecorder()
+	testPool.srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("GET /auth/me without token: status = %d, want 401", rec.Code)
+	}
+}
+
+func TestAuthMe_WithInvalidToken_Returns401(t *testing.T) {
+	if testPool == nil {
+		t.Skip("no database")
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	req.Header.Set("Authorization", "Bearer invalid-token")
+	rec := httptest.NewRecorder()
+	testPool.srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("GET /auth/me with invalid token: status = %d, want 401", rec.Code)
+	}
+}
+
+func TestAuthMe_WithValidToken_Returns200(t *testing.T) {
+	if testPool == nil {
+		t.Skip("no database")
+	}
+	token := registerAndLogin(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	testPool.srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("GET /auth/me with token: status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	}
+	var user map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &user); err != nil {
+		t.Fatalf("parse /auth/me response: %v", err)
+	}
+	if user["login"] == nil || user["id"] == nil {
+		t.Error("expected user with login and id in response")
+	}
+}
+
+func TestProgress_WithoutToken_Returns401(t *testing.T) {
+	if testPool == nil {
+		t.Skip("no database")
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/progress", nil)
+	rec := httptest.NewRecorder()
+	testPool.srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("GET /progress without token: status = %d, want 401", rec.Code)
+	}
+}
+
+func TestProgress_WithToken_Returns200(t *testing.T) {
+	if testPool == nil {
+		t.Skip("no database")
+	}
+	token := registerAndLogin(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/progress", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	testPool.srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("GET /progress with token: status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	}
+	var progressResp map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &progressResp); err != nil {
+		t.Fatalf("parse /progress response: %v", err)
+	}
+	if progressResp["lessons"] == nil {
+		t.Error("expected lessons in progress response")
+	}
+}
+
+func TestUsers_WithoutTeacher_Returns403(t *testing.T) {
+	if testPool == nil {
+		t.Skip("no database")
+	}
+	token := registerAndLogin(t) // student
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	testPool.srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("GET /users as student: status = %d, want 403", rec.Code)
 	}
 }

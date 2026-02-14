@@ -7,11 +7,13 @@ function getToken(): string | null {
   return localStorage.getItem('token')
 }
 
-let handling401 = false
-
+/**
+ * При 401: сбрасываем токен, сохраняем текущий путь для returnUrl (если безопасный)
+ * и редиректим на /login. throw гарантирует, что вызывающий код не продолжит выполнение.
+ * После присвоения location.href страница выгружается, поэтому повторный 401 в другом
+ * запросе приведёт к той же последовательности (идемпотентно).
+ */
 function handle401(): never {
-  if (handling401) throw new Error('Сессия истекла. Выполните вход заново.')
-  handling401 = true
   localStorage.removeItem('token')
   const path = window.location.pathname + window.location.search
   if (path !== '/login' && path !== '/register') {
@@ -188,6 +190,8 @@ export const users = {
 export interface ChatMessage {
   role: 'user' | 'model'
   text: string
+  /** Стабильный ключ для React (генерируется на клиенте, бэкенд может не возвращать). */
+  id?: string
 }
 
 export const chat = {

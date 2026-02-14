@@ -45,10 +45,11 @@
 ## Безопасность
 
 - Регистрация teacher требует `invite_code` (env `TEACHER_INVITE_CODE`).
-- Пароль: 6–72 символа. Login: 3–50 символов.
+- Пароль: 6–72 символа. Login: 3–50 символов. Имя: до 200 символов.
 - Rate limiting: auth 10/мин, chat 20/мин (per IP).
 - System prompt для чата формируется на сервере (поле `lesson_context` удалено из запроса).
 - Chat: клиент отправляет только `message` (строка), историю сервер загружает из БД.
 - Structured logging (slog JSON) для production observability.
 - Репозитории определены через интерфейсы для тестируемости.
-- Контент шагов уроков (markdown) и описания санитизируются на бэкенде (bluemonday) перед записью; лимиты длины: title 500, description 10 KB, step content 100 KB, steps per lesson 200.
+- Контент шагов уроков (markdown) и описания санитизируются на бэкенде (bluemonday) перед записью; лимиты длины: title 500, description 10 KB, step content 100 KB, steps per lesson 200. При создании урока `lesson_type`: только `theory`, `practice` или `project` (400 при неверном).
+- Текст комментария санитизируется (bluemonday) перед записью; длина 1–2000 символов.

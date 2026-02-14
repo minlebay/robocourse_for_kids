@@ -48,7 +48,11 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
     }
     chatApi
       .getHistory(lessonId)
-      .then((res) => setMessages(res.messages || []))
+      .then((res) =>
+        setMessages(
+          (res.messages || []).map((m, i) => ({ ...m, id: m.id ?? `hist-${i}-${m.role}` }))
+        )
+      )
       .catch(() => setMessages([]))
       .finally(() => setLoadingHistory(false))
   }, [user, lessonId])
@@ -83,13 +87,16 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
         return
       }
       setError('')
-      const userMessage: ChatMessage = { role: 'user', text: trimmed }
-      setMessages((prev) => [...prev, userMessage])
+      const userMsgId = `user-${Date.now()}`
+      setMessages((prev) => [...prev, { role: 'user', text: trimmed, id: userMsgId }])
       setInput('')
       setLoading(true)
       try {
         const res = await chatApi.send(lessonId, trimmed)
-        setMessages((prev) => [...prev, { role: 'model', text: res.text || '' }])
+        setMessages((prev) => [
+          ...prev,
+          { role: 'model', text: res.text || '', id: `model-${Date.now()}` },
+        ])
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Ошибка запроса')
         setMessages((prev) => prev.slice(0, -1))
@@ -194,8 +201,8 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
             Напиши вопрос по уроку или зажми кнопку микрофона и скажи команду голосом.
           </p>
         )}
-        {messages.map((m, i) => (
-          <div key={i} className={`lesson-chat-msg lesson-chat-msg-${m.role}`}>
+        {messages.map((m) => (
+          <div key={m.id ?? m.role + m.text.slice(0, 20)} className={`lesson-chat-msg lesson-chat-msg-${m.role}`}>
             <span className="lesson-chat-msg-role">{m.role === 'user' ? 'Ты' : 'Помощник'}</span>
             <div className="lesson-chat-msg-text">{m.text}</div>
           </div>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from './AuthContext'
-import { validateLogin, validatePassword } from '../../shared/validation'
+import { validateLogin, validatePassword, validateName } from '../../shared/validation'
 
 export function RegisterPage() {
   const [login, setLogin] = useState('')
@@ -27,8 +27,9 @@ export function RegisterPage() {
       setError(passwordErr)
       return
     }
-    if (!name.trim()) {
-      setError('Введите имя')
+    const nameErr = validateName(name)
+    if (nameErr) {
+      setError(nameErr)
       return
     }
     if (role === 'teacher' && !inviteCode.trim()) {
@@ -85,6 +86,7 @@ export function RegisterPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
+            maxLength={200}
             autoComplete="name"
           />
         </div>

@@ -2,12 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { progress as progressApi } from '../../shared/api'
 import type { UserProgress } from '../../shared/types'
-
-const statusLabels: Record<string, string> = {
-  not_started: 'Не начат',
-  in_progress: 'В процессе',
-  completed: 'Выполнен',
-}
+import { LESSON_STATUS_LABELS } from '../../shared/types'
 
 export function ProgressPage() {
   const [progress, setProgress] = useState<UserProgress | null>(null)
@@ -25,7 +20,7 @@ export function ProgressPage() {
   if (error) return <p className="error">{error}</p>
   if (!progress) return <p>Нет данных о прогрессе.</p>
 
-  const byStatus = (status: string) =>
+  const byStatus = (status: keyof typeof LESSON_STATUS_LABELS) =>
     progress.lessons.filter((l) => l.status === status)
 
   return (
@@ -41,7 +36,7 @@ export function ProgressPage() {
               <Link to={`/lessons/${l.lesson_id}`}>
                 {l.lesson_title || `Урок ${l.lesson_id.slice(0, 8)}…`}
               </Link>
-              {' — '}{statusLabels[l.status] ?? l.status}
+              {' — '}{LESSON_STATUS_LABELS[l.status] ?? l.status}
             </li>
           ))}
         </ul>

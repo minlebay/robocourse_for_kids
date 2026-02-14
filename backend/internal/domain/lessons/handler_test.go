@@ -265,3 +265,115 @@ func TestUpdateLesson_RejectsTooLongStepContent(t *testing.T) {
 		t.Fatalf("status = %d; want 400; body = %s", w.Code, w.Body.String())
 	}
 }
+
+func TestListModules_Success(t *testing.T) {
+	repo := &mockRepo{
+		ListModulesFn: func(ctx context.Context, tag *string) ([]Module, error) {
+			return []Module{{ID: uuid.New(), Title: "Mod1", SortOrder: 1}}, nil
+		},
+	}
+	h := NewHandler(repo)
+	w, c := jsonRequest(http.MethodGet, "/modules", nil, "")
+	h.ListModules(c)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d; want 200", w.Code)
+	}
+}
+
+func TestGetModule_InvalidID(t *testing.T) {
+	h := NewHandler(&mockRepo{})
+	w, c := jsonRequest(http.MethodGet, "/modules/not-a-uuid", nil, "not-a-uuid")
+	c.Params = gin.Params{{Key: "id", Value: "not-a-uuid"}}
+	h.GetModule(c)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d; want 400", w.Code)
+	}
+}
+
+func TestGetModule_NotFound(t *testing.T) {
+	repo := &mockRepo{GetModuleByIDFn: func(ctx context.Context, id uuid.UUID) (*Module, error) {
+		return nil, pgx.ErrNoRows
+	}}
+	h := NewHandler(repo)
+	id := uuid.New()
+	w, c := jsonRequest(http.MethodGet, "/modules/"+id.String(), nil, id.String())
+	c.Params = gin.Params{{Key: "id", Value: id.String()}}
+	h.GetModule(c)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d; want 404", w.Code)
+	}
+}
+
+func TestGetLesson_InvalidID(t *testing.T) {
+	h := NewHandler(&mockRepo{})
+	w, c := jsonRequest(http.MethodGet, "/lessons/bad", nil, "bad")
+	c.Params = gin.Params{{Key: "id", Value: "bad"}}
+	h.GetLesson(c)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d; want 400", w.Code)
+	}
+}
+
+func TestGetLesson_NotFound(t *testing.T) {
+	repo := &mockRepo{GetLessonByIDFn: func(ctx context.Context, id uuid.UUID) (*Lesson, error) {
+		return nil, pgx.ErrNoRows
+	}}
+	h := NewHandler(repo)
+	id := uuid.New()
+	w, c := jsonRequest(http.MethodGet, "/lessons/"+id.String(), nil, id.String())
+	c.Params = gin.Params{{Key: "id", Value: id.String()}}
+	h.GetLesson(c)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d; want 404", w.Code)
+	}
+}
+
+func TestCreateLesson_InvalidLessonType(t *testing.T) {
+	moduleID := uuid.New()
+	h := NewHandler(&mockRepo{})
+	body := CreateLessonRequest{Title: "Lesson", LessonType: "invalid_type"}
+	w, c := jsonRequest(http.MethodPost, "/modules/"+moduleID.String()+"/lessons", body, moduleID.String())
+	c.Params = gin.Params{{Key: "id", Value: moduleID.String()}}
+	h.CreateLesson(c)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d; want 400; body = %s", w.Code, w.Body.String())
+	}
+}
+
+func TestCreateModule_EmptyTitle(t *testing.T) {
+	h := NewHandler(&mockRepo{})
+	body := CreateModuleRequest{Title: ""}
+	w, c := jsonRequest(http.MethodPost, "/modules", body, "")
+	h.CreateModule(c)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d; want 400", w.Code)
+	}
+}
+
+func TestDeleteModule_NotFound(t *testing.T) {
+	repo := &mockRepo{DeleteModuleFn: func(ctx context.Context, id uuid.UUID) (bool, error) {
+		return false, nil
+	}}
+	h := NewHandler(repo)
+	id := uuid.New()
+	w, c := jsonRequest(http.MethodDelete, "/modules/"+id.String(), nil, id.String())
+	c.Params = gin.Params{{Key: "id", Value: id.String()}}
+	h.DeleteModule(c)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d; want 404", w.Code)
+	}
+}
+
+func TestDeleteLesson_NotFound(t *testing.T) {
+	repo := &mockRepo{DeleteLessonFn: func(ctx context.Context, id uuid.UUID) (bool, error) {
+		return false, nil
+	}}
+	h := NewHandler(repo)
+	id := uuid.New()
+	w, c := jsonRequest(http.MethodDelete, "/lessons/"+id.String(), nil, id.String())
+	c.Params = gin.Params{{Key: "id", Value: id.String()}}
+	h.DeleteLesson(c)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d; want 404 when not deleted", w.Code)
+	}
+}

@@ -1,11 +1,13 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
+	"learn_kids/backend/api"
 	"learn_kids/backend/internal/domain/chat"
 	"learn_kids/backend/internal/domain/comments"
 	"learn_kids/backend/internal/domain/lessons"
@@ -27,20 +29,24 @@ type Server struct {
 	chat     *chat.Handler
 	comments *comments.Handler
 
+	// shutdown context: when cancelled, rate limiter cleanup goroutines exit
+	shutdownContext context.Context
+
 	// cached middleware closures (avoid re-creation on every request)
 	requireAuthMw    gin.HandlerFunc
 	requireTeacherMw gin.HandlerFunc
 }
 
 type Deps struct {
-	Pool           *pgxpool.Pool
-	Lessons        *lessons.Handler
-	Users          *users.Handler
-	Progress       *progress.Handler
-	Chat           *chat.Handler
-	Comments       *comments.Handler
-	JWTSecret      string
-	FrontendOrigin string
+	Pool             *pgxpool.Pool
+	Lessons          *lessons.Handler
+	Users            *users.Handler
+	Progress         *progress.Handler
+	Chat             *chat.Handler
+	Comments         *comments.Handler
+	JWTSecret        string
+	FrontendOrigin   string
+	ShutdownContext  context.Context // optional: cancels on server shutdown so rate limiters stop cleanup
 }
 
 func New(d Deps) *Server {
@@ -58,7 +64,7 @@ func New(d Deps) *Server {
 	engine.Use(gin.Recovery())
 	engine.Use(middleware.CORS(origin))
 	engine.Use(middleware.RequestID())
-	engine.Use(gin.Logger())
+	engine.Use(middleware.HTTPLog())
 
 	// Max request body size: 1 MB (protection against OOM)
 	engine.Use(func(c *gin.Context) {
@@ -74,6 +80,7 @@ func New(d Deps) *Server {
 		progress:         d.Progress,
 		chat:             d.Chat,
 		comments:         d.Comments,
+		shutdownContext:  d.ShutdownContext,
 		requireAuthMw:    middleware.RequireAuth(),
 		requireTeacherMw: middleware.RequireTeacher(),
 	}
@@ -83,11 +90,14 @@ func New(d Deps) *Server {
 
 func (s *Server) routes() {
 	s.engine.GET("/api/v1/health", s.health)
-	s.engine.StaticFile("/api/docs", "./api/openapi.yaml")
+	s.engine.GET("/api/docs", func(c *gin.Context) {
+		b, _ := api.FS.ReadFile("openapi.yaml")
+		c.Data(http.StatusOK, "application/x-yaml", b)
+	})
 
-	// Rate limiters
-	authLimiter := middleware.NewRateLimiter(10, time.Minute)
-	chatLimiter := middleware.NewRateLimiter(20, time.Minute)
+	// Rate limiters (shutdown context stops cleanup goroutines on server exit)
+	authLimiter := middleware.NewRateLimiter(10, time.Minute, s.shutdownContext)
+	chatLimiter := middleware.NewRateLimiter(20, time.Minute, s.shutdownContext)
 
 	api := s.engine.Group("/api/v1")
 	api.Use(middleware.Auth(s.users))

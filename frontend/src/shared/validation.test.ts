@@ -4,9 +4,12 @@ import {
   AUTH_LOGIN_MAX,
   AUTH_PASSWORD_MIN,
   AUTH_PASSWORD_MAX,
+  AUTH_NAME_MAX,
   CHAT_MESSAGE_MAX,
+  COMMENT_MAX,
   validateLogin,
   validatePassword,
+  validateName,
   validateChatMessage,
 } from './validation'
 
@@ -44,6 +47,24 @@ describe('validatePassword', () => {
   })
 })
 
+describe('validateName', () => {
+  it('returns error for empty or whitespace', () => {
+    expect(validateName('')).toBe('Введите имя')
+    expect(validateName('   ')).toBe('Введите имя')
+  })
+
+  it('returns error when name too long', () => {
+    const long = 'а'.repeat(AUTH_NAME_MAX + 1)
+    expect(validateName(long)).toBe(`Имя не более ${AUTH_NAME_MAX} символов`)
+  })
+
+  it('returns null for valid name', () => {
+    expect(validateName('Иван')).toBeNull()
+    expect(validateName('  trim  ')).toBeNull()
+    expect(validateName('а'.repeat(AUTH_NAME_MAX))).toBeNull()
+  })
+})
+
 describe('validateChatMessage', () => {
   it('returns error for empty or whitespace', () => {
     expect(validateChatMessage('')).toBe('Введите сообщение')
@@ -59,5 +80,11 @@ describe('validateChatMessage', () => {
     expect(validateChatMessage('hello')).toBeNull()
     expect(validateChatMessage('  trimmed  ')).toBeNull()
     expect(validateChatMessage('a'.repeat(CHAT_MESSAGE_MAX))).toBeNull()
+  })
+})
+
+describe('COMMENT_MAX', () => {
+  it('is 2000', () => {
+    expect(COMMENT_MAX).toBe(2000)
   })
 })

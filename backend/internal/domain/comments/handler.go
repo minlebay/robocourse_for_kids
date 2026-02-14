@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"learn_kids/backend/internal/httplog"
 	"learn_kids/backend/internal/middleware"
+	"learn_kids/backend/internal/sanitize"
 )
 
 // Repository defines the data access interface for comments.
@@ -63,9 +64,14 @@ func (h *Handler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body: " + err.Error()})
 		return
 	}
-	text := req.Text
-	if len(text) == 0 || len(text) > 2000 {
+	// Sanitize to prevent XSS when comment is rendered (plain text or HTML).
+	text := sanitize.Description(req.Text)
+	if len(text) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "text must be 1–2000 characters"})
+		return
+	}
+	if len(text) > 2000 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "text must be at most 2000 characters"})
 		return
 	}
 	comment, err := h.repo.Create(c.Request.Context(), lessonID, userID, text)

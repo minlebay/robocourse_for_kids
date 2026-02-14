@@ -94,6 +94,12 @@ func (h *Handler) RegisterUser(c *gin.Context) {
 		}
 	}
 
+	// --- Validate name length ---
+	if len(req.Name) > 200 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name must be at most 200 characters"})
+		return
+	}
+
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash password"})
@@ -149,6 +155,7 @@ func (h *Handler) Login(c *gin.Context) {
 	user := &User{ID: u.ID, Login: u.Login, Name: u.Name, Role: u.Role, Theme: u.Theme, CreatedAt: u.CreatedAt}
 	token, err := h.generateToken(user.ID, user.Role)
 	if err != nil {
+		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create token"})
 		return
 	}

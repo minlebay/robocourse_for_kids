@@ -58,6 +58,13 @@ export interface ChecklistItem {
 /** Статус прохождения урока (контракт progress API). */
 export type LessonStatus = 'not_started' | 'in_progress' | 'completed'
 
+/** Подписи статусов урока для UI. */
+export const LESSON_STATUS_LABELS: Record<LessonStatus, string> = {
+  not_started: 'Не начат',
+  in_progress: 'В процессе',
+  completed: 'Выполнен',
+}
+
 export interface LessonProgressItem {
   lesson_id: string
   lesson_title?: string

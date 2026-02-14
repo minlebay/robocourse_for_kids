@@ -2,12 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { users as usersApi } from '../../shared/api'
 import type { User, UserProgress } from '../../shared/types'
-
-const statusLabels: Record<string, string> = {
-  not_started: 'Не начат',
-  in_progress: 'В процессе',
-  completed: 'Выполнен',
-}
+import { LESSON_STATUS_LABELS } from '../../shared/types'
+import { ConfirmModal } from '../../components'
 
 export function ParentDashboardPage() {
   const { user: currentUser } = useAuth()
@@ -17,6 +13,7 @@ export function ParentDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmUser, setConfirmUser] = useState<User | null>(null)
 
   const loadUsers = useCallback(() => {
     usersApi
@@ -42,10 +39,16 @@ export function ParentDashboardPage() {
       .catch(() => setProgress(null))
   }, [selectedUserId])
 
-  const handleDelete = useCallback(
-    async (u: User) => {
-      if (u.id === currentUser?.id) return
-      if (!window.confirm(`Удалить пользователя ${u.name} (${u.login})?`)) return
+  const requestDeleteUser = useCallback((u: User) => {
+    if (u.id === currentUser?.id) return
+    setConfirmUser(u)
+  }, [currentUser?.id])
+
+  const doDeleteUser = useCallback(
+    async () => {
+      const u = confirmUser
+      if (!u) return
+      setConfirmUser(null)
       setDeletingId(u.id)
       try {
         await usersApi.delete(u.id)
@@ -57,7 +60,7 @@ export function ParentDashboardPage() {
         setDeletingId(null)
       }
     },
-    [currentUser?.id, selectedUserId]
+    [confirmUser, selectedUserId]
   )
 
   if (loading) return <p>Загрузка...</p>
@@ -67,6 +70,18 @@ export function ParentDashboardPage() {
 
   return (
     <div className="parent-dashboard">
+      <ConfirmModal
+        open={!!confirmUser}
+        title="Удалить пользователя?"
+        confirmLabel="Удалить"
+        variant="danger"
+        onConfirm={doDeleteUser}
+        onCancel={() => setConfirmUser(null)}
+      >
+        {confirmUser
+          ? `Удалить пользователя ${confirmUser.name} (${confirmUser.login})?`
+          : ''}
+      </ConfirmModal>
       <h1>Дашборд родителя</h1>
       <p>Выберите ученика, чтобы посмотреть прогресс.</p>
       <div className="dashboard-layout">
@@ -87,7 +102,7 @@ export function ParentDashboardPage() {
                     className="user-delete-btn"
                     onClick={(e) => {
                       e.stopPropagation()
-                      handleDelete(u)
+                      requestDeleteUser(u)
                     }}
                     disabled={deletingId === u.id}
                     title="Удалить пользователя"
@@ -114,7 +129,7 @@ export function ParentDashboardPage() {
                     <ul>
                       {progress.lessons.map((l) => (
                         <li key={l.lesson_id}>
-                          {l.lesson_title || `Урок ${l.lesson_id.slice(0, 8)}…`} — {statusLabels[l.status] ?? l.status}
+                          {l.lesson_title || `Урок ${l.lesson_id.slice(0, 8)}…`} — {LESSON_STATUS_LABELS[l.status] ?? l.status}
                         </li>
                       ))}
                     </ul>

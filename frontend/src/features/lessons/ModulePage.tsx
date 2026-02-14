@@ -3,8 +3,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { lessons as lessonsApi, modules } from '../../shared/api'
 import { useAuth } from '../auth/AuthContext'
 import type { Module } from '../../shared/types'
+import { ConfirmModal } from '../../components'
 import { MarkdownStepEditor } from './MarkdownStepEditor'
 import { PageWithToc, type TocItem } from './PageWithToc'
+
+type ConfirmKind = { kind: 'module' } | { kind: 'lesson'; lessonId: string; lessonTitle: string }
 
 export function ModulePage() {
   const { id } = useParams<{ id: string }>()
@@ -22,6 +25,7 @@ export function ModulePage() {
   const [createSteps, setCreateSteps] = useState<{ title: string; content: string }[]>([{ title: '', content: '' }])
   const [createError, setCreateError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [confirm, setConfirm] = useState<ConfirmKind | null>(null)
 
   const load = useCallback(() => {
     if (!id) return
@@ -83,12 +87,12 @@ export function ModulePage() {
 
   const handleDelete = useCallback(() => {
     if (!id || !user || deleting) return
-    const lessonCount = (module_?.lessons ?? []).length
-    const msg =
-      lessonCount > 0
-        ? `Удалить курс «${module_?.title}» и все ${lessonCount} уроков?`
-        : `Удалить курс «${module_?.title}»?`
-    if (!window.confirm(msg)) return
+    setConfirm({ kind: 'module' })
+  }, [id, user, deleting])
+
+  const doDeleteModule = useCallback(() => {
+    if (!id || !confirm || confirm.kind !== 'module') return
+    setConfirm(null)
     setDeleting(true)
     modules
       .delete(id)
@@ -97,25 +101,42 @@ export function ModulePage() {
         setError(err.message)
         setDeleting(false)
       })
-  }, [id, user, deleting, module_, navigate])
+  }, [id, confirm, navigate])
 
-  const handleDeleteLesson = useCallback(
-    (lessonId: string, lessonTitle: string) => {
-      if (!user || deletingLessonId) return
-      if (!window.confirm(`Удалить урок «${lessonTitle}»?`)) return
-      setDeletingLessonId(lessonId)
-      lessonsApi
-        .delete(lessonId)
-        .then(() => {
-          setModule((prev) =>
-            prev ? { ...prev, lessons: (prev.lessons ?? []).filter((l) => l.id !== lessonId) } : prev
-          )
-        })
-        .catch((err) => setError(err.message))
-        .finally(() => setDeletingLessonId(null))
-    },
-    [user, deletingLessonId]
-  )
+  const handleDeleteLesson = useCallback((lessonId: string, lessonTitle: string) => {
+    if (!user || deletingLessonId) return
+    setConfirm({ kind: 'lesson', lessonId, lessonTitle })
+  }, [user, deletingLessonId])
+
+  const doDeleteLesson = useCallback(() => {
+    if (!confirm || confirm.kind !== 'lesson') return
+    const { lessonId } = confirm
+    setConfirm(null)
+    setDeletingLessonId(lessonId)
+    lessonsApi
+      .delete(lessonId)
+      .then(() => {
+        setModule((prev) =>
+          prev ? { ...prev, lessons: (prev.lessons ?? []).filter((l) => l.id !== lessonId) } : prev
+        )
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setDeletingLessonId(null))
+  }, [confirm])
+
+  const confirmTitle = confirm?.kind === 'module'
+    ? 'Удалить курс?'
+    : confirm?.kind === 'lesson'
+      ? 'Удалить урок?'
+      : ''
+  const confirmMessage =
+    confirm?.kind === 'module' && module_
+      ? (module_.lessons ?? []).length > 0
+        ? `Удалить курс «${module_.title}» и все ${(module_.lessons ?? []).length} уроков?`
+        : `Удалить курс «${module_.title}»?`
+      : confirm?.kind === 'lesson'
+        ? `Удалить урок «${confirm.lessonTitle}»?`
+        : ''
 
   if (loading) return <p>Загрузка...</p>
   if (error) return <p className="error">{error}</p>
@@ -130,6 +151,16 @@ export function ModulePage() {
 
   return (
     <PageWithToc title={module_.title} items={tocItems}>
+      <ConfirmModal
+        open={!!confirm}
+        title={confirmTitle}
+        confirmLabel="Удалить"
+        variant="danger"
+        onConfirm={confirm?.kind === 'module' ? doDeleteModule : doDeleteLesson}
+        onCancel={() => setConfirm(null)}
+      >
+        {confirmMessage}
+      </ConfirmModal>
       <div className="module-page">
         <p><Link to="/">← Каталог</Link></p>
         <h1>{module_.title}</h1>
