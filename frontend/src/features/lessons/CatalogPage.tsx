@@ -51,13 +51,12 @@ export function CatalogPage() {
   if (loading) return <p>Загрузка...</p>
   if (error) return <p className="error">{error}</p>
 
-  const tocItems: TocItem[] = list
-    .sort((a, b) => a.sort_order - b.sort_order)
-    .map((mod) => ({
-      id: mod.id,
-      title: mod.title,
-      href: `/modules/${mod.id}`,
-    }))
+  const sortedList = [...list].sort((a, b) => a.sort_order - b.sort_order)
+  const tocItems: TocItem[] = sortedList.map((mod) => ({
+    id: mod.id,
+    title: mod.title,
+    href: `/modules/${mod.id}`,
+  }))
 
   return (
     <PageWithToc title="Каталог" items={tocItems}>
@@ -115,7 +114,7 @@ export function CatalogPage() {
           </div>
         )}
         <div className="module-list">
-          {list.map((mod) => (
+          {sortedList.map((mod) => (
             <section key={mod.id} className="module-card">
               <h2><Link to={`/modules/${mod.id}`}>{mod.title}</Link></h2>
               {mod.description && <p>{mod.description}</p>}

@@ -1,30 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { chat as chatApi, type ChatMessage } from '../../shared/api'
+import { CHAT_MESSAGE_MAX, validateChatMessage } from '../../shared/validation'
 import { useAuth } from '../auth/AuthContext'
-import type { Lesson as LessonType } from '../../shared/types'
-
-const ROLE_PROMPT = `Ты — дружелюбный помощник по робототехнике для детей. Отвечай коротко и понятно, по делу урока. Помогай разобраться в шагах, коде и схемах. Если ребёнок спрашивает что-то не по теме урока, вежливо направь разговор к текущему уроку.`
-
-function buildLessonContext(lesson: LessonType): string {
-  const parts: string[] = [ROLE_PROMPT, '', '--- Текст текущего урока ---', '']
-  parts.push(`Название: ${lesson.title}`)
-  if (lesson.description) parts.push(`Описание: ${lesson.description}`)
-  parts.push('')
-  if (lesson.steps && lesson.steps.length > 0) {
-    const sorted = [...lesson.steps].sort((a, b) => a.sort_order - b.sort_order)
-    sorted.forEach((step, i) => {
-      parts.push(`Шаг ${i + 1}: ${step.title}`)
-      parts.push(step.content)
-      parts.push('')
-    })
-  }
-  if (lesson.checklist && lesson.checklist.length > 0) {
-    parts.push('Чек-лист:')
-    const sorted = [...lesson.checklist].sort((a, b) => a.sort_order - b.sort_order)
-    sorted.forEach((item) => parts.push(`- ${item.title}`))
-  }
-  return parts.join('\n')
-}
 
 declare global {
   interface Window {
@@ -53,7 +30,7 @@ interface SpeechRecognitionErrorEvent {
   error: string
 }
 
-export function LessonChat({ lesson }: { lesson: LessonType }) {
+export function LessonChat({ lessonId }: { lessonId: string }) {
   const { user } = useAuth()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
@@ -63,7 +40,6 @@ export function LessonChat({ lesson }: { lesson: LessonType }) {
   const [isRecording, setIsRecording] = useState(false)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const transcriptRef = useRef('')
-  const lessonContext = useRef(buildLessonContext(lesson)).current
 
   useEffect(() => {
     if (!user) {
@@ -71,35 +47,48 @@ export function LessonChat({ lesson }: { lesson: LessonType }) {
       return
     }
     chatApi
-      .getHistory(lesson.id)
+      .getHistory(lessonId)
       .then((res) => setMessages(res.messages || []))
       .catch(() => setMessages([]))
       .finally(() => setLoadingHistory(false))
-  }, [user, lesson.id])
+  }, [user, lessonId])
+
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop()
+        recognitionRef.current = null
+      }
+    }
+  }, [])
 
   const clearChat = useCallback(async () => {
     if (!user) return
     setError('')
     try {
-      await chatApi.clearHistory(lesson.id)
+      await chatApi.clearHistory(lessonId)
       setMessages([])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось очистить чат')
     }
-  }, [user, lesson.id])
+  }, [user, lessonId])
 
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim()
       if (!trimmed || loading) return
+      const msgErr = validateChatMessage(text)
+      if (msgErr) {
+        setError(msgErr)
+        return
+      }
       setError('')
       const userMessage: ChatMessage = { role: 'user', text: trimmed }
       setMessages((prev) => [...prev, userMessage])
       setInput('')
       setLoading(true)
       try {
-        const history: ChatMessage[] = [...messages, userMessage]
-        const res = await chatApi.send(lesson.id, lessonContext, history)
+        const res = await chatApi.send(lessonId, trimmed)
         setMessages((prev) => [...prev, { role: 'model', text: res.text || '' }])
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Ошибка запроса')
@@ -108,7 +97,7 @@ export function LessonChat({ lesson }: { lesson: LessonType }) {
         setLoading(false)
       }
     },
-    [lesson.id, lessonContext, messages, loading]
+    [lessonId, loading]
   )
 
   const startVoice = useCallback(() => {
@@ -228,6 +217,7 @@ export function LessonChat({ lesson }: { lesson: LessonType }) {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => user && e.key === 'Enter' && !e.shiftKey && send(input)}
           disabled={loading || !user}
+          maxLength={CHAT_MESSAGE_MAX}
           aria-label="Текст вопроса"
         />
         <button
@@ -256,6 +246,9 @@ export function LessonChat({ lesson }: { lesson: LessonType }) {
         </button>
         <span className="lesson-chat-voice-hint" title="Зажми кнопку, говори, отпусти — текст появится в поле">
           Зажми и говори
+        </span>
+        <span className="lesson-chat-char-hint" aria-live="polite">
+          {input.length}/{CHAT_MESSAGE_MAX}
         </span>
         <button
           type="button"

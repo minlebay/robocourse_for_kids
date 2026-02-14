@@ -45,7 +45,7 @@ export function ParentDashboardPage() {
   const handleDelete = useCallback(
     async (u: User) => {
       if (u.id === currentUser?.id) return
-      if (!confirm(`Удалить пользователя ${u.name} (${u.login})?`)) return
+      if (!window.confirm(`Удалить пользователя ${u.name} (${u.login})?`)) return
       setDeletingId(u.id)
       try {
         await usersApi.delete(u.id)

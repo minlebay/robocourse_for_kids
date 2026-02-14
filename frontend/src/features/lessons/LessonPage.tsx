@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { lessons as lessonsApi, progress as progressApi, modules as modulesApi } from '../../shared/api'
@@ -11,7 +11,9 @@ import { MermaidDiagram } from './MermaidDiagram'
 import { MarkdownStepEditor } from './MarkdownStepEditor'
 import { markdownComponents } from './YouTubeEmbed'
 import { PageWithToc, type TocItem } from './PageWithToc'
-import type { Lesson as LessonType, LessonMaterial, UserProgress, Module } from '../../shared/types'
+import type { Lesson as LessonType, LessonMaterial, LessonStatus, UserProgress, Module } from '../../shared/types'
+import { CourseNav } from './CourseNav'
+import { LessonProgressBar } from './LessonProgressBar'
 
 type EditForm = {
   title: string
@@ -56,9 +58,9 @@ export function LessonPage() {
   }, [load])
 
   const setLessonStatus = useCallback(
-    (status: string) => {
+    (status: LessonStatus) => {
       if (!id || !user) return
-      progressApi.setLesson(id, status).then(() => load())
+      progressApi.setLesson(id, status).then(() => load()).catch((err) => setError(err.message))
     },
     [id, user, load]
   )
@@ -98,9 +100,9 @@ export function LessonPage() {
     [id, user, progress, load]
   )
 
-  const getLessonStatus = () => {
+  const getLessonStatus = (): LessonStatus => {
     if (!progress || !id) return 'not_started'
-    const item = progress?.lessons?.find((l) => l.lesson_id === id)
+    const item = progress.lessons?.find((l) => l.lesson_id === id)
     return item?.status ?? 'not_started'
   }
 
@@ -187,39 +189,12 @@ export function LessonPage() {
     })
   }, [])
 
-  if (loading || !lesson) {
-    if (error) return <p className="error">{error}</p>
-    return <p>Загрузка...</p>
-  }
+  if (loading) return <p>Загрузка...</p>
+  if (error) return <p className="error">{error}</p>
+  if (!lesson) return <p className="error">Урок не найден</p>
 
   const status = getLessonStatus()
   const orderedLessons = (module_?.lessons ?? []).sort((a, b) => a.sort_order - b.sort_order)
-  const currentIndex = orderedLessons.findIndex((l) => l.id === lesson.id)
-  const prevLesson = currentIndex > 0 ? orderedLessons[currentIndex - 1] : null
-  const nextLesson = currentIndex >= 0 && currentIndex < orderedLessons.length - 1 ? orderedLessons[currentIndex + 1] : null
-
-  const CourseNav = () => (
-    <nav className="course-nav" aria-label="Навигация по курсу">
-      <Link to={module_ ? `/modules/${module_.id}` : '/'} className="course-nav-home">
-        Домой
-      </Link>
-      {prevLesson ? (
-        <Link to={`/lessons/${prevLesson.id}`} className="course-nav-prev">
-          ← Назад
-        </Link>
-      ) : (
-        <span className="course-nav-prev disabled" aria-hidden>← Назад</span>
-      )}
-      {nextLesson ? (
-        <Link to={`/lessons/${nextLesson.id}`} className="course-nav-next">
-          Вперёд →
-        </Link>
-      ) : (
-        <span className="course-nav-next disabled" aria-hidden>Вперёд →</span>
-      )}
-    </nav>
-  )
-
   const materials = lesson.materials ?? []
   const sortedMaterials = [...materials].sort((a, b) => {
     const order = (k: string) => (k === 'simulator' ? 0 : k === 'mermaid' ? 1 : 2)
@@ -281,7 +256,7 @@ export function LessonPage() {
 
   const lessonContent = (
     <div className={`lesson-page${editing && editForm ? ' lesson-page--editing' : ''}`}>
-      <CourseNav />
+      <CourseNav module={module_} currentLesson={lesson} />
       <div className="lesson-page-content">
       {user?.role === 'teacher' && !editing && (
         <div className="lesson-edit-bar">
@@ -369,34 +344,16 @@ export function LessonPage() {
         <p className="tags">Теги: {lesson.tags.join(', ')}</p>
       )}
 
-      {user && (
-        <div className="progress-actions">
-          <span>Статус: </span>
-          <button
-            className={status === 'not_started' ? 'active' : ''}
-            onClick={() => setLessonStatus('not_started')}
-          >
-            Не начат
-          </button>
-          <button
-            className={status === 'in_progress' ? 'active' : ''}
-            onClick={() => setLessonStatus('in_progress')}
-          >
-            В процессе
-          </button>
-          <button
-            className={status === 'completed' ? 'active' : ''}
-            onClick={() => setLessonStatus('completed')}
-          >
-            Выполнен
-          </button>
-        </div>
-      )}
+      <LessonProgressBar
+        status={status}
+        onStatusChange={setLessonStatus}
+        isAuthenticated={!!user}
+      />
 
       {lesson.steps && lesson.steps.length > 0 && (
         <section className="steps">
           <h2>Шаги</h2>
-          {lesson.steps
+          {[...lesson.steps]
             .sort((a, b) => a.sort_order - b.sort_order)
             .map((step) => (
               <div key={step.id} className="step">
@@ -413,7 +370,7 @@ export function LessonPage() {
         <section className="checklist">
           <h2>Чек-лист</h2>
           <ul>
-            {lesson.checklist
+            {[...lesson.checklist]
               .sort((a, b) => a.sort_order - b.sort_order)
               .map((item) => (
                 <li key={item.id}>
@@ -450,12 +407,12 @@ export function LessonPage() {
         </section>
       )}
 
-      <LessonChat lesson={lesson} />
+      <LessonChat lessonId={lesson.id} />
       <LessonComments lessonId={lesson.id} />
         </>
       )}
       </div>
-      <CourseNav />
+      <CourseNav module={module_} currentLesson={lesson} />
     </div>
   )
 

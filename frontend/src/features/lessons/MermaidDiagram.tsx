@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import mermaid from 'mermaid'
 
+// Безопасность: mermaid.render() с securityLevel: 'strict' возвращает SVG без скриптов и опасных атрибутов.
+// Допущение: вывод библиотеки mermaid считаем доверенным; при обновлении библиотеки проверять changelog на безопасность.
 mermaid.initialize({
   startOnLoad: false,
   theme: 'dark',
@@ -37,7 +39,7 @@ export function MermaidDiagram({ code, title }: { code: string; title?: string }
     mermaid
       .render(`mermaid-${id}`, code.trim())
       .then(({ svg }) => {
-        if (el) el.innerHTML = svg
+        if (el) el.innerHTML = svg // доверенный вывод mermaid (securityLevel: 'strict')
       })
       .catch((err) => {
         setError(err.message || 'Ошибка отрисовки диаграммы')

@@ -117,10 +117,9 @@ export function ModulePage() {
     [user, deletingLessonId]
   )
 
-  if (loading || !module_) {
-    if (error) return <p className="error">{error}</p>
-    return <p>Загрузка...</p>
-  }
+  if (loading) return <p>Загрузка...</p>
+  if (error) return <p className="error">{error}</p>
+  if (!module_) return <p className="error">Модуль не найден</p>
 
   const orderedLessons = (module_.lessons ?? []).sort((a, b) => a.sort_order - b.sort_order)
   const tocItems: TocItem[] = orderedLessons.map((lesson) => ({

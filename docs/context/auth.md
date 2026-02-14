@@ -28,6 +28,13 @@
 - Timing attack protection при login: dummy bcrypt при отсутствии пользователя.
 - Rate limiting на `/auth/login` и `/auth/register`: 10 запросов в минуту на IP.
 
+## Фронтенд
+
+- Форма регистрации показывает поле `invite_code` только при выборе роли `teacher`.
+- Навигация в хедере через React Router `<Link>` (без полной перезагрузки страницы).
+- Ошибка 429 (rate limit) показывается пользователю как понятное сообщение на русском.
+- При 401 (истёкший/невалидный токен) фронт сохраняет текущий URL в sessionStorage и редиректит на `/login`; после успешного входа пользователь возвращается на сохранённую страницу, если путь безопасный (/, /modules/:id, /lessons/:id, /progress, /dashboard).
+
 ## Решения
 
 - Роль по умолчанию при регистрации — `student`. Роль `teacher` даёт доступ к `GET /api/v1/users`, `DELETE /api/v1/users/:id` и `GET /api/v1/users/:id/progress`.

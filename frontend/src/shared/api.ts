@@ -1,13 +1,46 @@
+import type { LessonStatus } from './types'
+
 const API_BASE = '/api/v1'
+const RETURN_URL_KEY = 'learn_kids_return_url'
 
 function getToken(): string | null {
   return localStorage.getItem('token')
 }
 
-export async function api<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
+let handling401 = false
+
+function handle401(): never {
+  if (handling401) throw new Error('Сессия истекла. Выполните вход заново.')
+  handling401 = true
+  localStorage.removeItem('token')
+  const path = window.location.pathname + window.location.search
+  if (path !== '/login' && path !== '/register') {
+    try {
+      sessionStorage.setItem(RETURN_URL_KEY, path)
+    } catch {
+      /* ignore */
+    }
+  }
+  window.location.href = '/login'
+  throw new Error('Сессия истекла. Выполните вход заново.')
+}
+
+/** Возвращает сохранённый returnUrl и удаляет его из sessionStorage. Безопасные пути: /, /modules/*, /lessons/*, /progress, /dashboard. */
+export function consumeReturnUrl(): string | null {
+  try {
+    const url = sessionStorage.getItem(RETURN_URL_KEY)
+    if (!url) return null
+    sessionStorage.removeItem(RETURN_URL_KEY)
+    const path = url.split('?')[0]
+    if (path === '/' || path === '/progress' || path === '/dashboard') return url
+    if (path.startsWith('/modules/') || path.startsWith('/lessons/')) return url
+    return null
+  } catch {
+    return null
+  }
+}
+
+async function request(path: string, options: RequestInit = {}): Promise<Response> {
   const token = getToken()
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
@@ -16,16 +49,42 @@ export async function api<T>(
   if (token) {
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
   }
-  const res = await fetch(API_BASE + path, { ...options, headers })
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    throw new Error((data.error as string) || data.message || res.statusText)
+  return fetch(API_BASE + path, { ...options, headers })
+}
+
+async function handleResponse<T>(res: Response, expectBody: boolean): Promise<T> {
+  if (res.status === 401) handle401()
+  if (res.status === 429) {
+    throw new Error('Слишком много запросов. Подожди немного и попробуй снова.')
   }
-  return data as T
+  if (res.status === 204) return undefined as T
+  const data = await res.json().catch(() => null)
+  if (!res.ok) {
+    const msg =
+      data && (typeof data.error === 'string' || typeof data.message === 'string')
+        ? String(data.error ?? data.message)
+        : 'Ошибка сервера. Попробуйте позже.'
+    throw new Error(msg)
+  }
+  return expectBody ? (data as T) : (undefined as T)
+}
+
+export async function api<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const res = await request(path, options)
+  return handleResponse<T>(res, true)
+}
+
+/** Запросы без тела ответа (204). */
+export async function apiVoid(path: string, options: RequestInit = {}): Promise<void> {
+  const res = await request(path, options)
+  await handleResponse<void>(res, false)
 }
 
 export const auth = {
-  register: (body: { login: string; password: string; name: string; role?: string }) =>
+  register: (body: { login: string; password: string; name: string; role?: string; invite_code?: string }) =>
     api<{ user: import('./types').User; token: string }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -45,7 +104,13 @@ export const auth = {
 
 export const modules = {
   list: (params?: { platform?: string; tag?: string }) => {
-    const q = new URLSearchParams(params as Record<string, string>).toString()
+    const filtered: Record<string, string> = {}
+    if (params) {
+      for (const [k, v] of Object.entries(params)) {
+        if (v !== undefined && v !== null) filtered[k] = v
+      }
+    }
+    const q = new URLSearchParams(filtered).toString()
     return api<import('./types').Module[]>(`/modules${q ? `?${q}` : ''}`)
   },
   get: (id: string) => api<import('./types').Module>(`/modules/${id}`),
@@ -55,7 +120,7 @@ export const modules = {
       body: JSON.stringify(body),
     }),
   delete: (id: string) =>
-    api<void>(`/modules/${id}`, { method: 'DELETE' }),
+    apiVoid(`/modules/${id}`, { method: 'DELETE' }),
   createLesson: (
     moduleId: string,
     body: {
@@ -74,7 +139,7 @@ export const modules = {
 
 export const lessons = {
   get: (id: string) => api<import('./types').Lesson>(`/lessons/${id}`),
-  delete: (id: string) => api<void>(`/lessons/${id}`, { method: 'DELETE' }),
+  delete: (id: string) => apiVoid(`/lessons/${id}`, { method: 'DELETE' }),
   getComments: (id: string) =>
     api<import('./types').LessonComment[]>(`/lessons/${id}/comments`),
   addComment: (id: string, text: string) =>
@@ -83,7 +148,7 @@ export const lessons = {
       body: JSON.stringify({ text }),
     }),
   deleteComment: (lessonId: string, commentId: string) =>
-    api<void>(`/lessons/${lessonId}/comments/${commentId}`, { method: 'DELETE' }),
+    apiVoid(`/lessons/${lessonId}/comments/${commentId}`, { method: 'DELETE' }),
   update: (
     id: string,
     body: {
@@ -100,7 +165,7 @@ export const lessons = {
 
 export const progress = {
   get: () => api<import('./types').UserProgress>('/progress'),
-  setLesson: (lessonId: string, status: string) =>
+  setLesson: (lessonId: string, status: LessonStatus) =>
     api<{ ok: boolean }>(`/lessons/${lessonId}/progress`, {
       method: 'PUT',
       body: JSON.stringify({ status }),
@@ -117,7 +182,7 @@ export const users = {
   progress: (userId: string) =>
     api<import('./types').UserProgress>(`/users/${userId}/progress`),
   delete: (userId: string) =>
-    api<void>(`/users/${userId}`, { method: 'DELETE' }),
+    apiVoid(`/users/${userId}`, { method: 'DELETE' }),
 }
 
 export interface ChatMessage {
@@ -126,13 +191,13 @@ export interface ChatMessage {
 }
 
 export const chat = {
-  send: (lessonId: string, lessonContext: string, messages: ChatMessage[]) =>
+  send: (lessonId: string, message: string) =>
     api<{ text: string }>('/chat', {
       method: 'POST',
-      body: JSON.stringify({ lesson_id: lessonId, lesson_context: lessonContext, messages }),
+      body: JSON.stringify({ lesson_id: lessonId, message }),
     }),
   getHistory: (lessonId: string) =>
     api<{ messages: ChatMessage[] }>(`/chat/${lessonId}/history`),
   clearHistory: (lessonId: string) =>
-    api<void>(`/chat/${lessonId}/history`, { method: 'DELETE' }),
+    apiVoid(`/chat/${lessonId}/history`, { method: 'DELETE' }),
 }

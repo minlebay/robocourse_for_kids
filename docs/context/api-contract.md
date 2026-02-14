@@ -51,3 +51,4 @@
 - Chat: клиент отправляет только `message` (строка), историю сервер загружает из БД.
 - Structured logging (slog JSON) для production observability.
 - Репозитории определены через интерфейсы для тестируемости.
+- Контент шагов уроков (markdown) и описания санитизируются на бэкенде (bluemonday) перед записью; лимиты длины: title 500, description 10 KB, step content 100 KB, steps per lesson 200.

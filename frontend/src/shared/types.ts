@@ -55,11 +55,14 @@ export interface ChecklistItem {
   sort_order: number
 }
 
+/** Статус прохождения урока (контракт progress API). */
+export type LessonStatus = 'not_started' | 'in_progress' | 'completed'
+
 export interface LessonProgressItem {
   lesson_id: string
   lesson_title?: string
   module_id?: string
-  status: 'not_started' | 'in_progress' | 'completed'
+  status: LessonStatus
   updated_at: string
 }
 

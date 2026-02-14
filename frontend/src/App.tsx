@@ -1,65 +1,16 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { AuthProvider, useAuth } from './features/auth/AuthContext'
-import { ThemeProvider, ThemeSelector } from './features/theme'
+import { AuthProvider } from './features/auth/AuthContext'
+import { ThemeProvider } from './features/theme'
+import { ErrorBoundary } from './shared/ErrorBoundary'
+import { Layout, RequireAuth, RequireTeacher } from './components'
 import { LoginPage } from './features/auth/LoginPage'
 import { RegisterPage } from './features/auth/RegisterPage'
 import { CatalogPage } from './features/lessons/CatalogPage'
 import { ModulePage } from './features/lessons/ModulePage'
 import { LessonPage } from './features/lessons/LessonPage'
-import { HeaderResumeHint, ProgressPage } from './features/progress'
+import { ProgressPage } from './features/progress'
 import { ParentDashboardPage } from './features/parent-dashboard/ParentDashboardPage'
 import './App.css'
-
-function Layout({ children }: { children: React.ReactNode }) {
-  const { user, loading, logout } = useAuth()
-  if (loading) return <div className="layout">Загрузка...</div>
-  return (
-    <div className="layout">
-      <div className="layout-center">
-        <header className="header">
-          <nav>
-            <a href="/">Каталог</a>
-            {user && (
-              <>
-                <HeaderResumeHint />
-                <a href="/progress">Мой прогресс</a>
-                {user.role === 'teacher' && (
-                  <a href="/dashboard">Дашборд</a>
-                )}
-                <button type="button" onClick={logout}>
-                  Выйти ({user.name})
-                </button>
-              </>
-            )}
-            {!user && (
-              <>
-                <a href="/login">Вход</a>
-                <a href="/register">Регистрация</a>
-              </>
-            )}
-            <ThemeSelector />
-          </nav>
-        </header>
-        <main className="main">{children}</main>
-      </div>
-    </div>
-  )
-}
-
-function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
-  if (loading) return <p>Загрузка...</p>
-  if (!user) return <Navigate to="/login" replace />
-  return <>{children}</>
-}
-
-function RequireTeacher({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
-  if (loading) return <p>Загрузка...</p>
-  if (!user) return <Navigate to="/login" replace />
-  if (user.role !== 'teacher') return <Navigate to="/" replace />
-  return <>{children}</>
-}
 
 function AppRoutes() {
   return (
@@ -96,7 +47,9 @@ export default function App() {
       <AuthProvider>
         <ThemeProvider>
           <Layout>
-            <AppRoutes />
+            <ErrorBoundary>
+              <AppRoutes />
+            </ErrorBoundary>
           </Layout>
         </ThemeProvider>
       </AuthProvider>

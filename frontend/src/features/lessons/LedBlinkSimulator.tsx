@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 const DEFAULT_CODE = `from machine import Pin
 import time
@@ -112,6 +112,8 @@ export function LedBlinkSimulator() {
     }
     runNext(0)
   }, [code, stop])
+
+  useEffect(() => () => stop(), [stop])
 
   return (
     <div className="simulator simulator-led">

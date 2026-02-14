@@ -3,6 +3,7 @@ package lessons
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -11,6 +12,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"learn_kids/backend/internal/httplog"
+	"learn_kids/backend/internal/sanitize"
+)
+
+// Length limits for validation (defence against huge payloads and DB bloat).
+const (
+	MaxTitleLength        = 500
+	MaxDescriptionLength  = 10 * 1024   // 10 KB
+	MaxStepContentLength  = 100 * 1024  // 100 KB per step
+	MaxStepsPerLesson     = 200
 )
 
 // Repository defines the data access interface for lessons and modules.
@@ -92,7 +102,17 @@ func (h *Handler) CreateModule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "title must not be empty"})
 		return
 	}
-	mod, err := h.repo.CreateModule(c.Request.Context(), req.Title, req.Description, req.SortOrder)
+	if len(req.Title) > MaxTitleLength {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("title must be at most %d characters", MaxTitleLength)})
+		return
+	}
+	if len(req.Description) > MaxDescriptionLength {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("description must be at most %d characters", MaxDescriptionLength)})
+		return
+	}
+	title := req.Title
+	description := sanitize.Description(req.Description)
+	mod, err := h.repo.CreateModule(c.Request.Context(), title, description, req.SortOrder)
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -162,6 +182,14 @@ func (h *Handler) CreateLesson(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "title must not be empty"})
 		return
 	}
+	if len(req.Title) > MaxTitleLength {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("title must be at most %d characters", MaxTitleLength)})
+		return
+	}
+	if len(req.Description) > MaxDescriptionLength {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("description must be at most %d characters", MaxDescriptionLength)})
+		return
+	}
 	if req.LessonType == "" {
 		req.LessonType = "theory"
 	}
@@ -171,7 +199,25 @@ func (h *Handler) CreateLesson(c *gin.Context) {
 			steps = append(steps, s)
 		}
 	}
-	lesson, err := h.repo.CreateLesson(c.Request.Context(), moduleID, req.Title, req.Description, req.LessonType, req.SortOrder, steps)
+	if len(steps) > MaxStepsPerLesson {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("at most %d steps per lesson", MaxStepsPerLesson)})
+		return
+	}
+	for i := range steps {
+		if len(steps[i].Title) > MaxTitleLength {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("step %d title must be at most %d characters", i+1, MaxTitleLength)})
+			return
+		}
+		if len(steps[i].Content) > MaxStepContentLength {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("step %d content must be at most %d characters", i+1, MaxStepContentLength)})
+			return
+		}
+		steps[i].Title = sanitize.Description(steps[i].Title)
+		steps[i].Content = sanitize.LessonContent(steps[i].Content)
+	}
+	title := req.Title
+	description := sanitize.Description(req.Description)
+	lesson, err := h.repo.CreateLesson(c.Request.Context(), moduleID, title, description, req.LessonType, req.SortOrder, steps)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
@@ -230,17 +276,51 @@ func (h *Handler) UpdateLesson(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "title must not be empty"})
 		return
 	}
+	if body.Title != nil && len(*body.Title) > MaxTitleLength {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("title must be at most %d characters", MaxTitleLength)})
+		return
+	}
+	if body.Description != nil && len(*body.Description) > MaxDescriptionLength {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("description must be at most %d characters", MaxDescriptionLength)})
+		return
+	}
 	var steps []LessonStep
 	if body.Steps != nil {
 		steps = *body.Steps
+		if len(steps) > MaxStepsPerLesson {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("at most %d steps per lesson", MaxStepsPerLesson)})
+			return
+		}
 		for i, s := range steps {
 			if s.Title == "" {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "step " + strconv.Itoa(i+1) + " title must not be empty"})
 				return
 			}
+			if len(s.Title) > MaxTitleLength {
+				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("step %d title must be at most %d characters", i+1, MaxTitleLength)})
+				return
+			}
+			if len(s.Content) > MaxStepContentLength {
+				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("step %d content must be at most %d characters", i+1, MaxStepContentLength)})
+				return
+			}
+		}
+		// Sanitize before passing to repo.
+		for i := range steps {
+			steps[i].Title = sanitize.Description(steps[i].Title)
+			steps[i].Content = sanitize.LessonContent(steps[i].Content)
 		}
 	}
-	lesson, err := h.repo.UpdateLesson(c.Request.Context(), id, body.Title, body.Description, steps)
+	var title, description *string
+	if body.Title != nil {
+		t := sanitize.Description(*body.Title)
+		title = &t
+	}
+	if body.Description != nil {
+		d := sanitize.Description(*body.Description)
+		description = &d
+	}
+	lesson, err := h.repo.UpdateLesson(c.Request.Context(), id, title, description, steps)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "lesson not found"})

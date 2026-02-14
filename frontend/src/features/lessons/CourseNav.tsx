@@ -1,0 +1,36 @@
+import { Link } from 'react-router-dom'
+import type { Lesson, Module } from '../../shared/types'
+
+type CourseNavProps = {
+  module: Module | null
+  currentLesson: Lesson
+}
+
+export function CourseNav({ module, currentLesson }: CourseNavProps) {
+  const orderedLessons = (module?.lessons ?? []).slice().sort((a, b) => a.sort_order - b.sort_order)
+  const currentIndex = orderedLessons.findIndex((l) => l.id === currentLesson.id)
+  const prevLesson = currentIndex > 0 ? orderedLessons[currentIndex - 1] : null
+  const nextLesson = currentIndex >= 0 && currentIndex < orderedLessons.length - 1 ? orderedLessons[currentIndex + 1] : null
+
+  return (
+    <nav className="course-nav" aria-label="Навигация по курсу">
+      <Link to={module ? `/modules/${module.id}` : '/'} className="course-nav-home">
+        Домой
+      </Link>
+      {prevLesson ? (
+        <Link to={`/lessons/${prevLesson.id}`} className="course-nav-prev">
+          ← Назад
+        </Link>
+      ) : (
+        <span className="course-nav-prev disabled" aria-hidden>← Назад</span>
+      )}
+      {nextLesson ? (
+        <Link to={`/lessons/${nextLesson.id}`} className="course-nav-next">
+          Вперёд →
+        </Link>
+      ) : (
+        <span className="course-nav-next disabled" aria-hidden>Вперёд →</span>
+      )}
+    </nav>
+  )
+}

@@ -297,6 +297,16 @@ body {
   border-radius: var(--radius-sm);
 }
 
+.error-boundary {
+  padding: 2rem;
+  text-align: center;
+}
+.error-boundary-message {
+  margin: 1rem 0;
+  font-family: monospace;
+  color: var(--text-muted);
+}
+
 /* Auth */
 .auth-page {
   max-width: 420px;
@@ -317,6 +327,15 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.auth-page .form-group {
+  margin-bottom: 0;
+}
+.auth-page .form-group label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-weight: 600;
 }
 
 .auth-page input,
@@ -1430,6 +1449,11 @@ body {
   font-size: 0.85rem;
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+.lesson-chat-char-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
 @keyframes lesson-chat-pulse {

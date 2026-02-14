@@ -9,6 +9,12 @@ vi.mock('../../shared/api', () => ({
   },
 }))
 
+vi.mock('../auth/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: 'u1', login: 'teacher1', name: 'Teacher', role: 'teacher' },
+  }),
+}))
+
 const api = await import('../../shared/api')
 
 describe('CatalogPage', () => {
@@ -31,6 +37,7 @@ describe('CatalogPage', () => {
       </MemoryRouter>
     )
     expect(await screen.findByRole('heading', { name: /каталог уроков/i })).toBeInTheDocument()
-    expect(await screen.findByText('Введение')).toBeInTheDocument()
+    const intros = await screen.findAllByText('Введение')
+    expect(intros.length).toBeGreaterThanOrEqual(1)
   })
 })
