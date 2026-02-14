@@ -11,6 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Compile-time check: *Repo implements Repository.
+var _ Repository = (*Repo)(nil)
+
 type Repo struct {
 	pool *pgxpool.Pool
 }
@@ -19,12 +22,25 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
 }
 
-func (r *Repo) ListModules(ctx context.Context, platform, tag *string) ([]Module, error) {
-	query := `
-		SELECT id, title, description, sort_order, created_at
-		FROM modules
-		ORDER BY sort_order, created_at`
-	rows, err := r.pool.Query(ctx, query)
+func (r *Repo) ListModules(ctx context.Context, tag *string) ([]Module, error) {
+	var rows pgx.Rows
+	var err error
+
+	if tag != nil {
+		// Single query with JOIN — no N+1
+		rows, err = r.pool.Query(ctx, `
+			SELECT DISTINCT m.id, m.title, m.description, m.sort_order, m.created_at
+			FROM modules m
+			JOIN lessons l ON l.module_id = m.id
+			JOIN lesson_tags lt ON lt.lesson_id = l.id
+			WHERE lt.tag = $1
+			ORDER BY m.sort_order, m.created_at`, *tag)
+	} else {
+		rows, err = r.pool.Query(ctx, `
+			SELECT id, title, description, sort_order, created_at
+			FROM modules
+			ORDER BY sort_order, created_at`)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -34,56 +50,35 @@ func (r *Repo) ListModules(ctx context.Context, platform, tag *string) ([]Module
 	for rows.Next() {
 		var m Module
 		var desc *string
-		err := rows.Scan(&m.ID, &m.Title, &desc, &m.SortOrder, &m.CreatedAt)
-		if err != nil {
+		if err := rows.Scan(&m.ID, &m.Title, &desc, &m.SortOrder, &m.CreatedAt); err != nil {
 			return nil, err
 		}
 		if desc != nil {
 			m.Description = *desc
 		}
-		// Filter by tag if needed (simplified: load all and filter in app, or join lesson_tags)
 		list = append(list, m)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-
-	if tag != nil || platform != nil {
-		filtered := list[:0]
-		for _, m := range list {
-			moduleLessons, err := r.listLessonsByModuleID(ctx, m.ID)
-			if err != nil {
-				return nil, err
-			}
-			keep := true
-			if tag != nil {
-				hasTag := false
-				for _, l := range moduleLessons {
-					for _, t := range l.Tags {
-						if t == *tag {
-							hasTag = true
-							break
-						}
-					}
-				}
-				if !hasTag {
-					keep = false
-				}
-			}
-			if keep {
-				filtered = append(filtered, m)
-			}
-		}
-		list = filtered
+	if list == nil {
+		list = []Module{}
 	}
-
 	return list, nil
 }
 
 func (r *Repo) CreateModule(ctx context.Context, title, description string, sortOrder int) (*Module, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
 	if sortOrder == 0 {
 		var maxOrder int
-		_ = r.pool.QueryRow(ctx, "SELECT COALESCE(MAX(sort_order), 0) + 1 FROM modules").Scan(&maxOrder)
+		if err := tx.QueryRow(ctx, "SELECT COALESCE(MAX(sort_order), 0) + 1 FROM modules").Scan(&maxOrder); err != nil {
+			return nil, err
+		}
 		sortOrder = maxOrder
 	}
 	var m Module
@@ -92,7 +87,7 @@ func (r *Repo) CreateModule(ctx context.Context, title, description string, sort
 		desc = &description
 	}
 	var outDesc *string
-	err := r.pool.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		INSERT INTO modules (title, description, sort_order)
 		VALUES ($1, $2, $3)
 		RETURNING id, title, description, sort_order, created_at
@@ -102,6 +97,9 @@ func (r *Repo) CreateModule(ctx context.Context, title, description string, sort
 	}
 	if outDesc != nil {
 		m.Description = *outDesc
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
 	}
 	return &m, nil
 }
@@ -215,7 +213,7 @@ func (r *Repo) listLessonsByModuleID(ctx context.Context, moduleID uuid.UUID) ([
 		return nil, err
 	}
 	defer rows.Close()
-	var list []Lesson
+	list := []Lesson{}
 	for rows.Next() {
 		var l Lesson
 		var desc *string
@@ -271,7 +269,7 @@ func (r *Repo) getStepsByLessonID(ctx context.Context, lessonID uuid.UUID) ([]Le
 		return nil, err
 	}
 	defer rows.Close()
-	var list []LessonStep
+	list := []LessonStep{}
 	for rows.Next() {
 		var s LessonStep
 		var content *string
@@ -294,7 +292,7 @@ func (r *Repo) getMaterialsByLessonID(ctx context.Context, lessonID uuid.UUID) (
 		return nil, err
 	}
 	defer rows.Close()
-	var list []LessonMaterial
+	list := []LessonMaterial{}
 	for rows.Next() {
 		var m LessonMaterial
 		var title *string
@@ -315,7 +313,7 @@ func (r *Repo) getTagsByLessonID(ctx context.Context, lessonID uuid.UUID) ([]str
 		return nil, err
 	}
 	defer rows.Close()
-	var tags []string
+	tags := []string{}
 	for rows.Next() {
 		var t string
 		if err := rows.Scan(&t); err != nil {
@@ -334,7 +332,7 @@ func (r *Repo) getChecklistByLessonID(ctx context.Context, lessonID uuid.UUID) (
 		return nil, err
 	}
 	defer rows.Close()
-	var list []ChecklistItem
+	list := []ChecklistItem{}
 	for rows.Next() {
 		var c ChecklistItem
 		if err := rows.Scan(&c.ID, &c.LessonID, &c.Title, &c.SortOrder); err != nil {

@@ -1,6 +1,7 @@
 package progress
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -9,11 +10,19 @@ import (
 	"learn_kids/backend/internal/middleware"
 )
 
-type Handler struct {
-	repo *Repo
+// Repository defines the data access interface for progress tracking.
+type Repository interface {
+	GetProgress(ctx context.Context, userID uuid.UUID) (*UserProgress, error)
+	SetLessonProgress(ctx context.Context, userID, lessonID uuid.UUID, status string) error
+	SetChecklistItemCompleted(ctx context.Context, userID, checklistItemID uuid.UUID, completed bool) error
+	ChecklistItemBelongsToLesson(ctx context.Context, lessonID, itemID uuid.UUID) (bool, error)
 }
 
-func NewHandler(repo *Repo) *Handler {
+type Handler struct {
+	repo Repository
+}
+
+func NewHandler(repo Repository) *Handler {
 	return &Handler{repo: repo}
 }
 

@@ -7,7 +7,7 @@ import (
 )
 
 func TestHandler_GenerateAndParseToken(t *testing.T) {
-	h := NewHandler(nil, "test-secret-key")
+	h := NewHandler(nil, "test-secret-key", "")
 	userID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	role := RoleStudent
 
@@ -32,7 +32,7 @@ func TestHandler_GenerateAndParseToken(t *testing.T) {
 }
 
 func TestHandler_ParseToken_Invalid(t *testing.T) {
-	h := NewHandler(nil, "test-secret")
+	h := NewHandler(nil, "test-secret", "")
 
 	_, _, err := h.ParseToken("invalid")
 	if err != ErrInvalidToken {
@@ -46,10 +46,10 @@ func TestHandler_ParseToken_Invalid(t *testing.T) {
 }
 
 func TestHandler_ParseToken_WrongSecret(t *testing.T) {
-	h1 := NewHandler(nil, "secret-a")
+	h1 := NewHandler(nil, "secret-a", "")
 	token, _ := h1.generateToken(uuid.New(), RoleTeacher)
 
-	h2 := NewHandler(nil, "secret-b")
+	h2 := NewHandler(nil, "secret-b", "")
 	_, _, err := h2.ParseToken(token)
 	if err != ErrInvalidToken {
 		t.Errorf("ParseToken(wrong secret) = %v, want ErrInvalidToken", err)

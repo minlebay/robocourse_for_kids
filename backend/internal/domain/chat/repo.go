@@ -8,6 +8,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Compile-time check: *Repo implements Repository.
+var _ Repository = (*Repo)(nil)
+
 type Repo struct {
 	pool *pgxpool.Pool
 }

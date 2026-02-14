@@ -2,15 +2,17 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 )
 
 type Config struct {
-	Port           string
-	DatabaseURL    string
-	JWTSecret      string
-	FrontendOrigin string
-	GeminiAPIKey   string
+	Port              string
+	DatabaseURL       string
+	JWTSecret         string
+	FrontendOrigin    string
+	GeminiAPIKey      string
+	TeacherInviteCode string
 }
 
 // Load loads config from environment. Returns error if JWT_SECRET is not set in production.
@@ -35,11 +37,19 @@ func Load() (*Config, error) {
 		frontendOrigin = "http://localhost:5173"
 	}
 	geminiAPIKey := os.Getenv("GEMINI_API_KEY")
+	if geminiAPIKey == "" {
+		slog.Warn("GEMINI_API_KEY is not set — AI chat will be disabled")
+	}
+	teacherInviteCode := os.Getenv("TEACHER_INVITE_CODE")
+	if teacherInviteCode == "" {
+		slog.Warn("TEACHER_INVITE_CODE is not set — teacher registration is disabled")
+	}
 	return &Config{
-		Port:           port,
-		DatabaseURL:    dbURL,
-		JWTSecret:      jwtSecret,
-		FrontendOrigin: frontendOrigin,
-		GeminiAPIKey:   geminiAPIKey,
+		Port:              port,
+		DatabaseURL:       dbURL,
+		JWTSecret:         jwtSecret,
+		FrontendOrigin:    frontendOrigin,
+		GeminiAPIKey:      geminiAPIKey,
+		TeacherInviteCode: teacherInviteCode,
 	}, nil
 }

@@ -16,6 +16,9 @@ func (r *Repo) ChecklistItemBelongsToLesson(ctx context.Context, lessonID, itemI
 	return exists, err
 }
 
+// Compile-time check: *Repo implements Repository.
+var _ Repository = (*Repo)(nil)
+
 type Repo struct {
 	pool *pgxpool.Pool
 }

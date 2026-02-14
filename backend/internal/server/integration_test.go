@@ -16,6 +16,8 @@ import (
 	"learn_kids/backend/internal/domain/lessons"
 	"learn_kids/backend/internal/domain/progress"
 	"learn_kids/backend/internal/domain/users"
+
+	_ "learn_kids/backend/internal/middleware" // ensure middleware compiles
 )
 
 var testPool *testDeps
@@ -49,13 +51,20 @@ func TestMain(m *testing.M) {
 		jwtSecret = "test-jwt-secret"
 	}
 	geminiKey := os.Getenv("GEMINI_API_KEY")
+	inviteCode := os.Getenv("TEACHER_INVITE_CODE")
+
+	// Dummy lesson context func for tests
+	lessonCtxFn := func(_ context.Context, _ uuid.UUID) string {
+		return "Test system prompt"
+	}
+
 	testPool = &testDeps{
 		srv: New(Deps{
 			Pool:           pool,
 			Lessons:        lessons.NewHandler(lessons.NewRepo(pool)),
-			Users:          users.NewHandler(users.NewRepo(pool), jwtSecret),
+			Users:          users.NewHandler(users.NewRepo(pool), jwtSecret, inviteCode),
 			Progress:       progress.NewHandler(progress.NewRepo(pool)),
-			Chat:           chat.NewHandler(geminiKey, chat.NewRepo(pool)),
+			Chat:           chat.NewHandler(geminiKey, chat.NewRepo(pool), lessonCtxFn),
 			Comments:       comments.NewHandler(comments.NewRepo(pool)),
 			JWTSecret:      jwtSecret,
 			FrontendOrigin: "http://localhost:5173",

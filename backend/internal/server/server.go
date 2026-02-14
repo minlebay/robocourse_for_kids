@@ -3,6 +3,8 @@ package server
 import (
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"learn_kids/backend/internal/domain/chat"
 	"learn_kids/backend/internal/domain/comments"
@@ -24,22 +26,31 @@ type Server struct {
 	progress *progress.Handler
 	chat     *chat.Handler
 	comments *comments.Handler
+
+	// cached middleware closures (avoid re-creation on every request)
+	requireAuthMw    gin.HandlerFunc
+	requireTeacherMw gin.HandlerFunc
 }
 
 type Deps struct {
-	Pool            *pgxpool.Pool
-	Lessons         *lessons.Handler
-	Users           *users.Handler
-	Progress        *progress.Handler
-	Chat            *chat.Handler
-	Comments        *comments.Handler
-	JWTSecret       string
-	FrontendOrigin  string
+	Pool           *pgxpool.Pool
+	Lessons        *lessons.Handler
+	Users          *users.Handler
+	Progress       *progress.Handler
+	Chat           *chat.Handler
+	Comments       *comments.Handler
+	JWTSecret      string
+	FrontendOrigin string
 }
 
 func New(d Deps) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	engine := gin.New()
+
+	// Only trust loopback and private Docker/LAN subnets as reverse proxies.
+	// This ensures c.ClientIP() returns the real client IP (not spoofed X-Forwarded-For).
+	_ = engine.SetTrustedProxies([]string{"127.0.0.1", "::1", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"})
+
 	origin := d.FrontendOrigin
 	if origin == "" {
 		origin = "*"
@@ -49,14 +60,22 @@ func New(d Deps) *Server {
 	engine.Use(middleware.RequestID())
 	engine.Use(gin.Logger())
 
+	// Max request body size: 1 MB (protection against OOM)
+	engine.Use(func(c *gin.Context) {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1<<20)
+		c.Next()
+	})
+
 	s := &Server{
-		engine:   engine,
-		pool:     d.Pool,
-		lessons:  d.Lessons,
-		users:    d.Users,
-		progress: d.Progress,
-		chat:     d.Chat,
-		comments: d.Comments,
+		engine:           engine,
+		pool:             d.Pool,
+		lessons:          d.Lessons,
+		users:            d.Users,
+		progress:         d.Progress,
+		chat:             d.Chat,
+		comments:         d.Comments,
+		requireAuthMw:    middleware.RequireAuth(),
+		requireTeacherMw: middleware.RequireTeacher(),
 	}
 	s.routes()
 	return s
@@ -66,12 +85,16 @@ func (s *Server) routes() {
 	s.engine.GET("/api/v1/health", s.health)
 	s.engine.StaticFile("/api/docs", "./api/openapi.yaml")
 
+	// Rate limiters
+	authLimiter := middleware.NewRateLimiter(10, time.Minute)
+	chatLimiter := middleware.NewRateLimiter(20, time.Minute)
+
 	api := s.engine.Group("/api/v1")
 	api.Use(middleware.Auth(s.users))
 
-	// Public auth
-	api.POST("/auth/register", s.users.RegisterUser)
-	api.POST("/auth/login", s.users.Login)
+	// Public auth (rate limited)
+	api.POST("/auth/register", authLimiter.Handler(), s.users.RegisterUser)
+	api.POST("/auth/login", authLimiter.Handler(), s.users.Login)
 
 	// Lessons (public read; teacher can create/update)
 	s.lessons.Register(api)
@@ -93,32 +116,36 @@ func (s *Server) routes() {
 	api.PUT("/lessons/:id/progress", s.requireAuth, s.progress.SetLessonProgress)
 	api.PUT("/lessons/:id/checklist/:itemId", s.requireAuth, s.progress.SetChecklistItem)
 
-	// Chat with Gemini (auth required)
-	api.POST("/chat", s.requireAuth, s.chat.Chat)
+	// Chat with Gemini (auth required, rate limited)
+	api.POST("/chat", s.requireAuth, chatLimiter.Handler(), s.chat.Chat)
 	api.GET("/chat/:lessonId/history", s.requireAuth, s.chat.GetHistory)
 	api.DELETE("/chat/:lessonId/history", s.requireAuth, s.chat.ClearHistory)
 
 	// Teacher only
-	api.GET("/users", s.requireTeacher, s.users.ListUsers)
-	api.DELETE("/users/:id", s.requireTeacher, s.users.DeleteUser)
-	api.GET("/users/:id/progress", s.requireTeacher, s.progress.GetUserProgress)
+	api.GET("/users", s.requireAuth, s.requireTeacher, s.users.ListUsers)
+	api.DELETE("/users/:id", s.requireAuth, s.requireTeacher, s.users.DeleteUser)
+	api.GET("/users/:id/progress", s.requireAuth, s.requireTeacher, s.progress.GetUserProgress)
 
 	// Frontend static (optional: serve from ./web when present, e.g. in Docker)
 	if _, err := os.Stat("./web/index.html"); err == nil {
 		s.engine.Static("/assets", "./web/assets")
 		s.engine.StaticFile("/vite.svg", "./web/vite.svg")
 		s.engine.NoRoute(func(c *gin.Context) {
+			if strings.HasPrefix(c.Request.URL.Path, "/api/") {
+				c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+				return
+			}
 			c.File("./web/index.html")
 		})
 	}
 }
 
 func (s *Server) requireAuth(c *gin.Context) {
-	middleware.RequireAuth()(c)
+	s.requireAuthMw(c)
 }
 
 func (s *Server) requireTeacher(c *gin.Context) {
-	s.users.RequireTeacher(c)
+	s.requireTeacherMw(c)
 }
 
 func (s *Server) health(c *gin.Context) {

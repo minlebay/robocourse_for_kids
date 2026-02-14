@@ -2,9 +2,11 @@ package chat
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -16,7 +18,25 @@ import (
 
 const geminiAPIURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
-var geminiClient = &http.Client{Timeout: 60 * time.Second}
+// Chat input/output limits.
+const (
+	maxMessageText     = 1000 // max characters per single user message
+	maxHistoryMessages = 50   // max messages loaded from DB for Gemini context
+	maxResponseSize    = 2 << 20 // 2 MB — limit on Gemini response body
+)
+
+var defaultHTTPClient = &http.Client{Timeout: 60 * time.Second}
+
+// LessonContextFunc builds a system prompt for the AI based on the lesson ID.
+// Returns a safe server-generated prompt to prevent prompt injection.
+type LessonContextFunc func(ctx context.Context, lessonID uuid.UUID) string
+
+// Repository defines the data access interface for chat history.
+type Repository interface {
+	ListByUserAndLesson(ctx context.Context, userID, lessonID uuid.UUID) ([]StoredMessage, error)
+	Save(ctx context.Context, userID, lessonID uuid.UUID, role, text string) error
+	DeleteByUserAndLesson(ctx context.Context, userID, lessonID uuid.UUID) (int64, error)
+}
 
 // ChatMessage — одно сообщение в диалоге (user или model).
 type ChatMessage struct {
@@ -25,13 +45,13 @@ type ChatMessage struct {
 }
 
 // Request — тело запроса к нашему API.
+// Клиент отправляет только последнее сообщение; историю сервер загружает из БД.
 type Request struct {
-	LessonID      string        `json:"lesson_id"`       // id урока для сохранения истории
-	LessonContext string        `json:"lesson_context"` // промпт с ролью и текстом урока
-	Messages      []ChatMessage `json:"messages"`
+	LessonID string `json:"lesson_id"` // id урока для контекста и истории
+	Message  string `json:"message"`   // новое сообщение пользователя
 }
 
-// Response — ответ Gemini (извлекаем текст из первого кандидата).
+// Gemini API response types.
 type geminiPart struct {
 	Text string `json:"text"`
 }
@@ -47,12 +67,22 @@ type geminiResponse struct {
 }
 
 type Handler struct {
-	apiKey string
-	repo   *Repo
+	apiKey        string
+	repo          Repository
+	lessonContext LessonContextFunc
+	// Overridable for testing.
+	APIBaseURL string       // defaults to geminiAPIURL
+	HTTPClient *http.Client // defaults to defaultHTTPClient
 }
 
-func NewHandler(apiKey string, repo *Repo) *Handler {
-	return &Handler{apiKey: apiKey, repo: repo}
+func NewHandler(apiKey string, repo Repository, lcf LessonContextFunc) *Handler {
+	return &Handler{
+		apiKey:        apiKey,
+		repo:          repo,
+		lessonContext: lcf,
+		APIBaseURL:    geminiAPIURL,
+		HTTPClient:    defaultHTTPClient,
+	}
 }
 
 func (h *Handler) Chat(c *gin.Context) {
@@ -72,10 +102,16 @@ func (h *Handler) Chat(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
-	if len(req.Messages) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "нужно хотя бы одно сообщение"})
+	if len(req.Message) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "сообщение не может быть пустым"})
 		return
 	}
+	if len(req.Message) > maxMessageText {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("сообщение слишком длинное (максимум %d символов)", maxMessageText)})
+		return
+	}
+
+	ctx := c.Request.Context()
 
 	lessonID := uuid.Nil
 	if req.LessonID != "" {
@@ -84,25 +120,50 @@ func (h *Handler) Chat(c *gin.Context) {
 		}
 	}
 
-	// сохраняем последнее сообщение пользователя для истории
+	// 1. Save the new user message to DB first.
 	if lessonID != uuid.Nil && h.repo != nil {
-		lastMsg := req.Messages[len(req.Messages)-1]
-		if lastMsg.Role == "user" {
-			_ = h.repo.Save(c.Request.Context(), userID, lessonID, "user", lastMsg.Text)
+		if err := h.repo.Save(ctx, userID, lessonID, "user", req.Message); err != nil {
+			httplog.LogWarn(c, fmt.Sprintf("save user chat message: %v", err))
 		}
 	}
 
-	// system_instruction: роль + контекст урока
-	systemParts := []map[string]interface{}{{"text": req.LessonContext}}
-	// contents: история в формате Gemini (role + parts)
-	contents := make([]map[string]interface{}, 0, len(req.Messages))
-	for _, m := range req.Messages {
+	// 2. Load conversation history from DB (server-authoritative — prevents prompt injection).
+	//    The history includes the just-saved user message.
+	var chatMessages []ChatMessage
+	if lessonID != uuid.Nil && h.repo != nil {
+		stored, err := h.repo.ListByUserAndLesson(ctx, userID, lessonID)
+		if err != nil {
+			httplog.LogWarn(c, fmt.Sprintf("load chat history: %v", err))
+		} else {
+			// Limit to last N messages to stay within reasonable context size.
+			if len(stored) > maxHistoryMessages {
+				stored = stored[len(stored)-maxHistoryMessages:]
+			}
+			for _, m := range stored {
+				chatMessages = append(chatMessages, ChatMessage{Role: m.Role, Text: m.Text})
+			}
+		}
+	}
+
+	// Fallback: if no history loaded (no lesson_id or DB error), use just the new message.
+	if len(chatMessages) == 0 {
+		chatMessages = []ChatMessage{{Role: "user", Text: req.Message}}
+	}
+
+	// 3. Build Gemini request.
+	// system_instruction: formed on the server by lesson_id (prompt injection protection).
+	systemPrompt := h.lessonContext(ctx, lessonID)
+	systemParts := []map[string]interface{}{{"text": systemPrompt}}
+
+	// contents: conversation history in Gemini format (role + parts).
+	contents := make([]map[string]interface{}, 0, len(chatMessages))
+	for _, m := range chatMessages {
 		role := "user"
 		if m.Role == "model" {
 			role = "model"
 		}
 		contents = append(contents, map[string]interface{}{
-			"role": role,
+			"role":  role,
 			"parts": []map[string]interface{}{{"text": m.Text}},
 		})
 	}
@@ -113,15 +174,19 @@ func (h *Handler) Chat(c *gin.Context) {
 	}
 	raw, _ := json.Marshal(body)
 
-	httpReq, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, geminiAPIURL+"?key="+h.apiKey, bytes.NewReader(raw))
+	apiURL := h.APIBaseURL
+	client := h.HTTPClient
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(raw))
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("x-goog-api-key", h.apiKey)
 
-	resp, err := geminiClient.Do(httpReq)
+	resp, err := client.Do(httpReq)
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusBadGateway, gin.H{"error": "AI service unavailable"})
@@ -129,7 +194,7 @@ func (h *Handler) Chat(c *gin.Context) {
 	}
 	defer resp.Body.Close()
 
-	b, err := io.ReadAll(resp.Body)
+	b, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -137,7 +202,7 @@ func (h *Handler) Chat(c *gin.Context) {
 	}
 	if resp.StatusCode != http.StatusOK {
 		rid, _ := c.Get("request_id")
-		log.Printf("[%v] Gemini status %d: %s", rid, resp.StatusCode, string(b))
+		slog.Error("gemini request failed", "request_id", rid, "status", resp.StatusCode, "body", string(b))
 		c.JSON(http.StatusBadGateway, gin.H{"error": "AI service error"})
 		return
 	}
@@ -151,9 +216,11 @@ func (h *Handler) Chat(c *gin.Context) {
 	responseText := ""
 	if len(gemini.Candidates) > 0 && len(gemini.Candidates[0].Content.Parts) > 0 {
 		responseText = gemini.Candidates[0].Content.Parts[0].Text
-		// сохраняем ответ модели для истории
+		// Save model response to history.
 		if lessonID != uuid.Nil && h.repo != nil {
-			_ = h.repo.Save(c.Request.Context(), userID, lessonID, "model", responseText)
+			if err := h.repo.Save(ctx, userID, lessonID, "model", responseText); err != nil {
+				httplog.LogWarn(c, fmt.Sprintf("save model chat message: %v", err))
+			}
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"text": responseText})

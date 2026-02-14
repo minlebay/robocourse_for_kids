@@ -8,6 +8,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Compile-time check: *Repo implements Repository.
+var _ Repository = (*Repo)(nil)
+
 type Repo struct {
 	pool *pgxpool.Pool
 }
@@ -63,10 +66,10 @@ func (r *Repo) Create(ctx context.Context, lessonID, userID uuid.UUID, text stri
 	return &c, nil
 }
 
-func (r *Repo) DeleteByIDAndUser(ctx context.Context, commentID, userID uuid.UUID) (deleted bool, err error) {
+func (r *Repo) DeleteByIDAndUser(ctx context.Context, commentID, lessonID, userID uuid.UUID) (deleted bool, err error) {
 	cmd, err := r.pool.Exec(ctx, `
-		DELETE FROM lesson_comments WHERE id = $1 AND user_id = $2
-	`, commentID, userID)
+		DELETE FROM lesson_comments WHERE id = $1 AND lesson_id = $2 AND user_id = $3
+	`, commentID, lessonID, userID)
 	if err != nil {
 		return false, err
 	}

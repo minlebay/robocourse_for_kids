@@ -7,6 +7,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Compile-time check: *Repo implements Repository.
+var _ Repository = (*Repo)(nil)
+
 type Repo struct {
 	pool *pgxpool.Pool
 }
@@ -59,7 +62,7 @@ func (r *Repo) List(ctx context.Context) ([]User, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var list []User
+	list := []User{}
 	for rows.Next() {
 		var u User
 		if err := rows.Scan(&u.ID, &u.Login, &u.Name, &u.Role, &u.Theme, &u.CreatedAt); err != nil {

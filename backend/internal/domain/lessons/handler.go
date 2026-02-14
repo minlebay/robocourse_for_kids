@@ -1,6 +1,7 @@
 package lessons
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -12,11 +13,23 @@ import (
 	"learn_kids/backend/internal/httplog"
 )
 
-type Handler struct {
-	repo *Repo
+// Repository defines the data access interface for lessons and modules.
+type Repository interface {
+	ListModules(ctx context.Context, tag *string) ([]Module, error)
+	GetModuleByID(ctx context.Context, id uuid.UUID) (*Module, error)
+	CreateModule(ctx context.Context, title, description string, sortOrder int) (*Module, error)
+	DeleteModule(ctx context.Context, id uuid.UUID) (bool, error)
+	GetLessonByID(ctx context.Context, id uuid.UUID) (*Lesson, error)
+	CreateLesson(ctx context.Context, moduleID uuid.UUID, title, description, lessonType string, sortOrder int, steps []LessonStep) (*Lesson, error)
+	DeleteLesson(ctx context.Context, id uuid.UUID) (bool, error)
+	UpdateLesson(ctx context.Context, id uuid.UUID, title, description *string, steps []LessonStep) (*Lesson, error)
 }
 
-func NewHandler(repo *Repo) *Handler {
+type Handler struct {
+	repo Repository
+}
+
+func NewHandler(repo Repository) *Handler {
 	return &Handler{repo: repo}
 }
 
@@ -27,14 +40,11 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 }
 
 func (h *Handler) ListModules(c *gin.Context) {
-	var platform, tag *string
-	if p := c.Query("platform"); p != "" {
-		platform = &p
-	}
+	var tag *string
 	if t := c.Query("tag"); t != "" {
 		tag = &t
 	}
-	list, err := h.repo.ListModules(c.Request.Context(), platform, tag)
+	list, err := h.repo.ListModules(c.Request.Context(), tag)
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -130,11 +140,11 @@ func (h *Handler) DeleteLesson(c *gin.Context) {
 }
 
 type CreateLessonRequest struct {
-	Title       string        `json:"title"`
-	Description string        `json:"description"`
-	LessonType  string        `json:"lesson_type"`
-	SortOrder   int           `json:"sort_order"`
-	Steps       []LessonStep  `json:"steps"`
+	Title       string       `json:"title"`
+	Description string       `json:"description"`
+	LessonType  string       `json:"lesson_type"`
+	SortOrder   int          `json:"sort_order"`
+	Steps       []LessonStep `json:"steps"`
 }
 
 func (h *Handler) CreateLesson(c *gin.Context) {

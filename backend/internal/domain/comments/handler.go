@@ -1,6 +1,7 @@
 package comments
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -9,11 +10,18 @@ import (
 	"learn_kids/backend/internal/middleware"
 )
 
-type Handler struct {
-	repo *Repo
+// Repository defines the data access interface for comments.
+type Repository interface {
+	ListByLesson(ctx context.Context, lessonID uuid.UUID) ([]Comment, error)
+	Create(ctx context.Context, lessonID, userID uuid.UUID, text string) (*Comment, error)
+	DeleteByIDAndUser(ctx context.Context, commentID, lessonID, userID uuid.UUID) (bool, error)
 }
 
-func NewHandler(repo *Repo) *Handler {
+type Handler struct {
+	repo Repository
+}
+
+func NewHandler(repo Repository) *Handler {
 	return &Handler{repo: repo}
 }
 
@@ -75,7 +83,7 @@ func (h *Handler) Delete(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-	_, err := uuid.Parse(c.Param("id"))
+	lessonID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid lesson id"})
 		return
@@ -85,7 +93,7 @@ func (h *Handler) Delete(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid comment id"})
 		return
 	}
-	deleted, err := h.repo.DeleteByIDAndUser(c.Request.Context(), commentID, userID)
+	deleted, err := h.repo.DeleteByIDAndUser(c.Request.Context(), commentID, lessonID, userID)
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})

@@ -1,6 +1,7 @@
 package users
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -12,38 +13,43 @@ import (
 	"learn_kids/backend/internal/httplog"
 )
 
-type Handler struct {
-	repo   *Repo
-	jwtKey []byte
+// Repository defines the data access interface for users.
+type Repository interface {
+	Create(ctx context.Context, login, passwordHash, name, role string) (*User, error)
+	GetByLogin(ctx context.Context, login string) (*UserWithPassword, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
+	List(ctx context.Context) ([]User, error)
+	Delete(ctx context.Context, id uuid.UUID) (bool, error)
+	UpdateTheme(ctx context.Context, id uuid.UUID, theme string) error
 }
 
-func NewHandler(repo *Repo, jwtSecret string) *Handler {
-	return &Handler{repo: repo, jwtKey: []byte(jwtSecret)}
+// dummyHash is a pre-computed bcrypt hash used for timing attack protection.
+// When a login attempt is made for a non-existent user, we still run bcrypt
+// to ensure consistent response times and prevent user enumeration.
+var dummyHash []byte
+
+func init() {
+	dummyHash, _ = bcrypt.GenerateFromPassword([]byte("timing-attack-protection"), bcrypt.DefaultCost)
+}
+
+type Handler struct {
+	repo       Repository
+	jwtKey     []byte
+	inviteCode string // required for teacher registration; empty = disabled
+}
+
+func NewHandler(repo Repository, jwtSecret, inviteCode string) *Handler {
+	return &Handler{repo: repo, jwtKey: []byte(jwtSecret), inviteCode: inviteCode}
 }
 
 var validThemes = map[string]bool{"default": true, "light": true, "cyberpunk": true}
 
-func (h *Handler) RequireTeacher(c *gin.Context) {
-	uid, exists := c.Get("user_id")
-	if !exists || uid == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		c.Abort()
-		return
-	}
-	u, err := h.repo.GetByID(c.Request.Context(), uid.(uuid.UUID))
-	if err != nil || u == nil || u.Role != RoleTeacher {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden: teacher role required"})
-		c.Abort()
-		return
-	}
-	c.Next()
-}
-
 type RegisterRequest struct {
-	Login    string `json:"login" binding:"required"`
-	Password string `json:"password" binding:"required"`
-	Name     string `json:"name" binding:"required"`
-	Role     string `json:"role"`
+	Login      string `json:"login" binding:"required"`
+	Password   string `json:"password" binding:"required"`
+	Name       string `json:"name" binding:"required"`
+	Role       string `json:"role"`
+	InviteCode string `json:"invite_code"`
 }
 
 func (h *Handler) RegisterUser(c *gin.Context) {
@@ -52,6 +58,24 @@ func (h *Handler) RegisterUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// --- Validate login length ---
+	if len(req.Login) < 3 || len(req.Login) > 50 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "login must be 3-50 characters"})
+		return
+	}
+
+	// --- Validate password length (bcrypt silently truncates at 72 bytes) ---
+	if len(req.Password) < 6 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at least 6 characters"})
+		return
+	}
+	if len(req.Password) > 72 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at most 72 characters"})
+		return
+	}
+
+	// --- Validate & authorize role ---
 	if req.Role == "" {
 		req.Role = RoleStudent
 	}
@@ -59,6 +83,17 @@ func (h *Handler) RegisterUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "role must be student or teacher"})
 		return
 	}
+	if req.Role == RoleTeacher {
+		if h.inviteCode == "" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "teacher registration is not available"})
+			return
+		}
+		if req.InviteCode != h.inviteCode {
+			c.JSON(http.StatusForbidden, gin.H{"error": "invalid invite code"})
+			return
+		}
+	}
+
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash password"})
@@ -96,8 +131,10 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 	u, err := h.repo.GetByLogin(c.Request.Context(), req.Login)
-	if err != nil || u == nil {
-		if err != nil && errors.Is(err, pgx.ErrNoRows) {
+	if err != nil {
+		// Timing attack protection: always run bcrypt even if user not found
+		bcrypt.CompareHashAndPassword(dummyHash, []byte(req.Password))
+		if errors.Is(err, pgx.ErrNoRows) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid login or password"})
 			return
 		}
@@ -207,4 +244,3 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 	}
 	c.Status(http.StatusNoContent)
 }
-
