@@ -45,12 +45,6 @@ func NewHandler(repo Repository) *Handler {
 	return &Handler{repo: repo}
 }
 
-func (h *Handler) Register(r *gin.RouterGroup) {
-	r.GET("/modules", h.ListModules)
-	r.GET("/modules/:id", h.GetModule)
-	r.GET("/lessons/:id", h.GetLesson)
-}
-
 func (h *Handler) ListModules(c *gin.Context) {
 	var tag *string
 	if t := c.Query("tag"); t != "" {

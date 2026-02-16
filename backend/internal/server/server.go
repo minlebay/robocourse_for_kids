@@ -107,7 +107,9 @@ func (s *Server) routes() {
 	api.POST("/auth/login", authLimiter.Handler(), s.users.Login)
 
 	// Lessons (public read; teacher can create/update)
-	s.lessons.Register(api)
+	api.GET("/modules", s.lessons.ListModules)
+	api.GET("/modules/:id", s.lessons.GetModule)
+	api.GET("/lessons/:id", s.lessons.GetLesson)
 	api.PUT("/lessons/:id", s.requireAuth, s.requireTeacher, s.lessons.UpdateLesson)
 	api.DELETE("/lessons/:id", s.requireAuth, s.requireTeacher, s.lessons.DeleteLesson)
 	api.POST("/modules", s.requireAuth, s.requireTeacher, s.lessons.CreateModule)

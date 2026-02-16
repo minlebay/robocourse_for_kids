@@ -42,8 +42,8 @@ func TestMain(m *testing.M) {
 		os.Exit(m.Run()) // no DB: skip integration tests (exit 0)
 		return
 	}
-	defer pool.Close()
 	if err := db.RunMigrations(url); err != nil {
+		pool.Close()
 		os.Exit(m.Run())
 		return
 	}
@@ -75,7 +75,11 @@ func TestMain(m *testing.M) {
 			ShutdownContext: shutdownCtx,
 		}),
 	}
-	os.Exit(m.Run())
+	code := m.Run()
+	// Очистка тестовых пользователей (login LIKE 'testuser_%'), созданных интеграционными тестами
+	_, _ = pool.Exec(ctx, `DELETE FROM users WHERE login LIKE 'testuser_%'`)
+	pool.Close()
+	os.Exit(code)
 }
 
 func TestHealth(t *testing.T) {
