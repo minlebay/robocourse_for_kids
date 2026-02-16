@@ -42,7 +42,11 @@ func NewHandler(repo Repository, jwtSecret, inviteCode string) *Handler {
 	return &Handler{repo: repo, jwtKey: []byte(jwtSecret), inviteCode: inviteCode}
 }
 
-var validThemes = map[string]bool{"default": true, "light": true, "cyberpunk": true}
+var validThemes = map[string]bool{
+	"default": true, "light": true, "cyberpunk": true,
+	"contrast-light": true, "contrast-dark": true,
+	"cream": true, "snow": true, "midnight": true, "forest": true,
+}
 
 type RegisterRequest struct {
 	Login      string `json:"login" binding:"required"`
@@ -192,7 +196,7 @@ func (h *Handler) UpdateMe(c *gin.Context) {
 		return
 	}
 	if req.Theme == "" || !validThemes[req.Theme] {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "theme must be one of: default, light, cyberpunk"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "theme must be one of: default, light, cyberpunk, contrast-light, contrast-dark, cream, snow, midnight, forest"})
 		return
 	}
 	if err := h.repo.UpdateTheme(c.Request.Context(), uid.(uuid.UUID), req.Theme); err != nil {

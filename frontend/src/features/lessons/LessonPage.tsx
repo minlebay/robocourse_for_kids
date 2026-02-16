@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
+import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
 import { lessons as lessonsApi, progress as progressApi, modules as modulesApi } from '../../shared/api'
 import { useAuth } from '../auth/AuthContext'
@@ -373,7 +374,7 @@ export function LessonPage() {
               <div key={step.id} className="step">
                 <h3>{step.title}</h3>
                 <div className="step-content step-content-markdown">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{step.content ?? ''}</ReactMarkdown>
+                  <ReactMarkdown rehypePlugins={[rehypeHighlight]} remarkPlugins={[remarkGfm]} components={markdownComponents}>{step.content ?? ''}</ReactMarkdown>
                 </div>
               </div>
             ))}

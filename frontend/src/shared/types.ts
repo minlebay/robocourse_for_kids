@@ -1,4 +1,13 @@
-export type ThemeId = 'default' | 'light' | 'cyberpunk'
+export type ThemeId =
+  | 'default'
+  | 'light'
+  | 'cyberpunk'
+  | 'contrast-light'
+  | 'contrast-dark'
+  | 'cream'
+  | 'snow'
+  | 'midnight'
+  | 'forest'
 
 export interface User {
   id: string

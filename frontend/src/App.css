@@ -81,8 +81,12 @@ body {
   flex-wrap: wrap;
 }
 
-.theme-selector {
+.theme-selector-wrap {
+  position: relative;
   margin-left: auto;
+}
+
+.theme-selector {
   padding: 4px;
   border: 2px solid var(--border);
   border-radius: var(--radius-sm);
@@ -94,7 +98,7 @@ body {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.theme-selector:hover {
+.theme-selector-wrap:hover .theme-selector {
   border-color: var(--accent);
 }
 
@@ -113,6 +117,83 @@ body {
   border-radius: 2px;
   min-width: 0;
   min-height: 0;
+}
+
+.theme-selector-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 200px;
+  padding: 4px;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  z-index: 100;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.theme-selector-wrap:hover .theme-selector-dropdown {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.theme-selector-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.theme-selector-option:hover {
+  background: var(--accent-soft);
+}
+
+.theme-selector-option[aria-selected="true"] {
+  background: var(--accent-soft);
+  outline: 1px solid var(--accent);
+}
+
+.theme-selector-option-preview {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 1px;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.theme-selector-option-preview > span {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.theme-selector-option-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .header a {
@@ -901,6 +982,53 @@ body {
   white-space: pre-wrap;
   overflow-wrap: break-word;
 }
+
+/* Подсветка синтаксиса (rehype-highlight) — цвета из переменных темы */
+.lesson-page .step-content-markdown pre code.hljs {
+  color: var(--text);
+  padding: 0;
+}
+.lesson-page .step-content-markdown .hljs-comment,
+.lesson-page .step-content-markdown .hljs-quote,
+.lesson-page .step-content-markdown .hljs-doctag {
+  color: var(--text-muted);
+}
+.lesson-page .step-content-markdown .hljs-keyword,
+.lesson-page .step-content-markdown .hljs-selector-tag,
+.lesson-page .step-content-markdown .hljs-addition {
+  color: var(--accent);
+}
+.lesson-page .step-content-markdown .hljs-string,
+.lesson-page .step-content-markdown .hljs-attr {
+  color: var(--success);
+}
+.lesson-page .step-content-markdown .hljs-number,
+.lesson-page .step-content-markdown .hljs-literal,
+.lesson-page .step-content-markdown .hljs-built_in {
+  color: var(--accent);
+}
+.lesson-page .step-content-markdown .hljs-title,
+.lesson-page .step-content-markdown .hljs-title.function_ {
+  color: var(--text);
+}
+.lesson-page .step-content-markdown .hljs-params,
+.lesson-page .step-content-markdown .hljs-meta,
+.lesson-page .step-content-markdown .hljs-variable {
+  color: var(--text-muted);
+}
+.lesson-page .step-content-markdown .hljs-punctuation,
+.lesson-page .step-content-markdown .hljs-operator {
+  color: var(--text);
+}
+.lesson-page .step-content-markdown .hljs-type,
+.lesson-page .step-content-markdown .hljs-class {
+  color: var(--accent);
+}
+.lesson-page .step-content-markdown .hljs-regexp,
+.lesson-page .step-content-markdown .hljs-symbol {
+  color: var(--success);
+}
+
 .lesson-page .step-content-markdown :not(pre) > code {
   font-family: ui-monospace, "SF Mono", "Consolas", "Liberation Mono", Menlo, monospace;
   font-size: 0.9em;
