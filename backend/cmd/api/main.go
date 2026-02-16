@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
 	"learn_kids/backend/internal/config"
 	"learn_kids/backend/internal/db"
@@ -21,6 +23,22 @@ import (
 	"learn_kids/backend/internal/domain/users"
 	"learn_kids/backend/internal/server"
 )
+
+// userChecker implements progress.UserChecker using users.Repository to return 404 for non-existent users in GetUserProgress.
+type userChecker struct {
+	repo users.Repository
+}
+
+func (u *userChecker) UserExists(ctx context.Context, id uuid.UUID) (bool, error) {
+	_, err := u.repo.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
 
 // defaultSystemPrompt is used when no lesson context is available.
 const defaultSystemPrompt = "Ты — дружелюбный ИИ-помощник для детского образовательного проекта. Помогай ученику разобраться в теме, объясняй простым языком, подходящим для детей."
@@ -80,11 +98,12 @@ func main() {
 	shutdownCtx, cancelShutdown := context.WithCancel(context.Background())
 	defer cancelShutdown()
 
+	usersRepo := users.NewRepo(pool)
 	srv := server.New(server.Deps{
 		Pool:             pool,
 		Lessons:          lessons.NewHandler(lessonsRepo),
-		Users:            users.NewHandler(users.NewRepo(pool), cfg.JWTSecret, cfg.TeacherInviteCode),
-		Progress:         progress.NewHandler(progress.NewRepo(pool)),
+		Users:            users.NewHandler(usersRepo, cfg.JWTSecret, cfg.TeacherInviteCode),
+		Progress:         progress.NewHandler(progress.NewRepo(pool), &userChecker{repo: usersRepo}),
 		Chat:             chat.NewHandler(cfg.GeminiAPIKey, chat.NewRepo(pool), lessonContextFn),
 		Comments:         comments.NewHandler(comments.NewRepo(pool)),
 		JWTSecret:        cfg.JWTSecret,

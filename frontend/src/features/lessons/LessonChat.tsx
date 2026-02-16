@@ -142,10 +142,10 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
     recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
       recognitionRef.current = null
       setIsRecording(false)
-      const err = e?.error ?? 'unknown'
-      if (err === 'not-allowed' || err === 'permission-denied') {
+      const errCode = e?.error ?? 'unknown'
+      if (errCode === 'not-allowed' || errCode === 'permission-denied') {
         setError('Разрешите доступ к микрофону в настройках браузера.')
-      } else if (err === 'no-speech') {
+      } else if (errCode === 'no-speech') {
         setError('Речь не распознана. Попробуйте ещё раз.')
       } else {
         setError('Ошибка голосового ввода. Попробуйте Chrome или Edge.')
@@ -156,7 +156,7 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
     setError('')
     try {
       recognition.start()
-    } catch (err) {
+    } catch {
       recognitionRef.current = null
       setIsRecording(false)
       setError('Не удалось запустить распознавание речи.')

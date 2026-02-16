@@ -19,6 +19,7 @@
 | [comments.md](comments.md) | Комментарии пользователей к урокам |
 | [parent-dashboard.md](parent-dashboard.md) | Дашборд родителя, доступ к прогрессу учеников |
 | [api-contract.md](api-contract.md) | Сводка эндпоинтов и форматов (выжимка OpenAPI) |
+| [frontend-review.md](frontend-review.md) | Ревью фронтенда (структура, тесты, линтер, рекомендации) |
 
 В `.cursor/rules` добавлено правило: перед правкой домена читать `docs/context/<domain>.md`, после изменения API — обновлять описание.
 

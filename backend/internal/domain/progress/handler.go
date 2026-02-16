@@ -18,12 +18,19 @@ type Repository interface {
 	ChecklistItemBelongsToLesson(ctx context.Context, lessonID, itemID uuid.UUID) (bool, error)
 }
 
-type Handler struct {
-	repo Repository
+// UserChecker optionally checks if a user exists. Used by GetUserProgress to return 404 for non-existent users.
+// If nil, the check is skipped (legacy behaviour: 200 with empty progress).
+type UserChecker interface {
+	UserExists(ctx context.Context, id uuid.UUID) (bool, error)
 }
 
-func NewHandler(repo Repository) *Handler {
-	return &Handler{repo: repo}
+type Handler struct {
+	repo        Repository
+	userChecker UserChecker // optional: when set, GetUserProgress returns 404 if user does not exist
+}
+
+func NewHandler(repo Repository, userChecker UserChecker) *Handler {
+	return &Handler{repo: repo, userChecker: userChecker}
 }
 
 func (h *Handler) GetProgress(c *gin.Context) {
@@ -110,12 +117,25 @@ func (h *Handler) SetChecklistItem(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// GetUserProgress returns progress for user :id (teacher only - middleware.RequireTeacher must be applied by router)
+// GetUserProgress returns progress for user :id (teacher only - middleware.RequireTeacher must be applied by router).
+// Returns 404 if userChecker is set and the user does not exist.
 func (h *Handler) GetUserProgress(c *gin.Context) {
 	targetID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
 		return
+	}
+	if h.userChecker != nil {
+		exists, err := h.userChecker.UserExists(c.Request.Context(), targetID)
+		if err != nil {
+			httplog.LogError(c, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+		if !exists {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
 	}
 	progress, err := h.repo.GetProgress(c.Request.Context(), targetID)
 	if err != nil {

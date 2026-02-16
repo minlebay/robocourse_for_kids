@@ -1,6 +1,6 @@
 # Сводка контракта API
 
-**Обновлено:** 2026-02-14
+**Обновлено:** 2026-02-16
 
 Базовый префикс: `/api/v1`. Полная спецификация: [backend/api/openapi.yaml](../../backend/api/openapi.yaml).
 
@@ -32,7 +32,7 @@
 | DELETE | /api/v1/chat/:lessonId/history | Очистить историю чата | JWT | — |
 | GET | /api/v1/users | Список пользователей | JWT, teacher | — |
 | DELETE | /api/v1/users/:id | Удалить пользователя (не себя) | JWT, teacher | — |
-| GET | /api/v1/users/:id/progress | Прогресс ученика | JWT, teacher | — |
+| GET | /api/v1/users/:id/progress | Прогресс ученика (404 если пользователь не найден) | JWT, teacher | — |
 
 ## Форматы
 

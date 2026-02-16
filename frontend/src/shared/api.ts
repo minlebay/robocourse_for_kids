@@ -54,8 +54,15 @@ async function request(path: string, options: RequestInit = {}): Promise<Respons
   return fetch(API_BASE + path, { ...options, headers })
 }
 
+const NEW_TOKEN_HEADER = 'X-New-Token'
+
 async function handleResponse<T>(res: Response, expectBody: boolean): Promise<T> {
   if (res.status === 401) handle401()
+  // Sliding session: сервер может вернуть новый токен в заголовке
+  if (res.ok) {
+    const newToken = res.headers.get(NEW_TOKEN_HEADER)
+    if (newToken) localStorage.setItem('token', newToken)
+  }
   if (res.status === 429) {
     throw new Error('Слишком много запросов. Подожди немного и попробуй снова.')
   }

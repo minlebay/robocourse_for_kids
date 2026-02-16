@@ -1,6 +1,6 @@
 # Домен: Авторизация (пользователи, роли, JWT)
 
-**Обновлено:** 2026-02-14
+**Обновлено:** 2026-02-16
 
 ## Назначение
 
@@ -11,7 +11,7 @@
 - `POST /api/v1/auth/register` — тело: `{ "login", "password", "name", "role?", "invite_code?" }`. Ответ: `{ "user", "token" }`. Rate limit: 10/мин на IP.
 - `POST /api/v1/auth/login` — тело: `{ "login", "password" }`. Ответ: `{ "user", "token" }`. Rate limit: 10/мин на IP.
 - `GET /api/v1/auth/me` — текущий пользователь (требуется заголовок `Authorization: Bearer <token>`).
-- `PATCH /api/v1/auth/me` — обновить профиль. Тело: `{ "theme": "default" | "light" | "cyberpunk" }`. Ответ: обновлённый `user`.
+- `PATCH /api/v1/auth/me` — обновить профиль. Тело: `{ "theme": "..." }`. Ответ: обновлённый `user`. Допустимые темы: `default`, `light`, `cyberpunk`, `contrast-light`, `contrast-dark`, `cream`, `snow`, `midnight`, `forest`.
 
 ## Валидация
 
@@ -23,6 +23,7 @@
 ## Безопасность
 
 - JWT в заголовке `Authorization: Bearer <token>`. Время жизни — 1 час. Claims: `user_id`, `role`, `iss=learn_kids`, `sub=<user_id>`.
+- **Sliding session:** если до истечения токена осталось меньше 30 минут, при любом успешном запросе с этим токеном сервер добавляет в ответ заголовок `X-New-Token` с новым JWT. Клиент при получении заголовка сохраняет новый токен в localStorage и использует его в следующих запросах — пользователь не перелогинивается при активном использовании.
 - Если заголовок `Authorization` присутствует, но токен невалиден — возвращается 401 (ранее пропускалось молча).
 - Роль из JWT сохраняется в `gin.Context` (`user_role`), проверка RequireTeacher без DB-запроса.
 - Пароли хранятся как bcrypt-хеш (DefaultCost).
@@ -39,4 +40,4 @@
 ## Решения
 
 - Роль по умолчанию при регистрации — `student`. Роль `teacher` даёт доступ к `GET /api/v1/users`, `DELETE /api/v1/users/:id` и `GET /api/v1/users/:id/progress`.
-- Поле `theme` в таблице `users` — цветовая схема портала. Значения: `default`, `light`, `cyberpunk`.
+- Поле `theme` в таблице `users` — цветовая схема портала. Значения: `default`, `light`, `cyberpunk`, `contrast-light`, `contrast-dark`, `cream`, `snow`, `midnight`, `forest`.

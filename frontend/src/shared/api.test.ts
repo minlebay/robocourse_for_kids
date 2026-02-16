@@ -68,12 +68,32 @@ describe('consumeReturnUrl', () => {
   })
 })
 
+function mockLocalStorage() {
+  const store: Record<string, string> = {}
+  const orig = window.localStorage
+  Object.defineProperty(window, 'localStorage', {
+    value: {
+      getItem: (key: string) => store[key] ?? null,
+      setItem: (key: string, value: string) => { store[key] = value },
+      removeItem: (key: string) => { delete store[key] },
+    },
+    writable: true,
+  })
+  return () => {
+    Object.defineProperty(window, 'localStorage', { value: orig, writable: true })
+  }
+}
+
 describe('api', () => {
+  let restoreLocalStorage: () => void
+
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
+    restoreLocalStorage = mockLocalStorage()
   })
 
   afterEach(() => {
+    restoreLocalStorage()
     vi.unstubAllGlobals()
   })
 
@@ -102,16 +122,16 @@ describe('api', () => {
 
   it('throws on 401 and clears token', async () => {
     const removeItem = vi.fn()
-    const origLocalStorage = window.localStorage
-    const origLocation = window.location
+    const store: Record<string, string> = { token: 'old-token' }
     Object.defineProperty(window, 'localStorage', {
       value: {
-        getItem: () => 'token',
+        getItem: (key: string) => store[key] ?? null,
         setItem: vi.fn(),
         removeItem,
       },
       writable: true,
     })
+    const origLocation = window.location
     const location = { href: '', pathname: '/progress', search: '' }
     Object.defineProperty(window, 'location', { value: location, writable: true })
 
@@ -122,7 +142,6 @@ describe('api', () => {
     expect(removeItem).toHaveBeenCalledWith('token')
     expect(location.href).toBe('/login')
 
-    Object.defineProperty(window, 'localStorage', { value: origLocalStorage, writable: true })
     Object.defineProperty(window, 'location', { value: origLocation, writable: true })
   })
 
@@ -136,11 +155,15 @@ describe('api', () => {
 })
 
 describe('apiVoid', () => {
+  let restoreLocalStorage: () => void
+
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
+    restoreLocalStorage = mockLocalStorage()
   })
 
   afterEach(() => {
+    restoreLocalStorage()
     vi.unstubAllGlobals()
   })
 

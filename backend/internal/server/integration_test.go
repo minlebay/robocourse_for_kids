@@ -67,7 +67,7 @@ func TestMain(m *testing.M) {
 			Pool:            pool,
 			Lessons:         lessons.NewHandler(lessons.NewRepo(pool)),
 			Users:           users.NewHandler(users.NewRepo(pool), jwtSecret, inviteCode),
-			Progress:        progress.NewHandler(progress.NewRepo(pool)),
+			Progress:        progress.NewHandler(progress.NewRepo(pool), nil),
 			Chat:            chat.NewHandler(geminiKey, chat.NewRepo(pool), lessonCtxFn),
 			Comments:        comments.NewHandler(comments.NewRepo(pool)),
 			JWTSecret:       jwtSecret,

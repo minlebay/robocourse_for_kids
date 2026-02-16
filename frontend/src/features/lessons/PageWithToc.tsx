@@ -21,22 +21,23 @@ type PageWithTocProps = {
   containerClassName?: string
 }
 
+function getInitialTocWidth(): number {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      const n = parseInt(saved, 10)
+      if (n >= MIN_WIDTH && n <= MAX_WIDTH) return n
+    }
+  } catch {
+    /* ignore */
+  }
+  return DEFAULT_WIDTH
+}
+
 export function PageWithToc({ title, items, children, containerClassName }: PageWithTocProps) {
-  const [width, setWidth] = useState(DEFAULT_WIDTH)
+  const [width, setWidth] = useState(getInitialTocWidth)
   const [isDragging, setIsDragging] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const n = parseInt(saved, 10)
-        if (n >= MIN_WIDTH && n <= MAX_WIDTH) setWidth(n)
-      }
-    } catch {
-      /* ignore */
-    }
-  }, [])
 
   const saveWidth = useCallback((w: number) => {
     const value = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, w))

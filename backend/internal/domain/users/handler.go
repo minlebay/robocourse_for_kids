@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 	"learn_kids/backend/internal/httplog"
+	"learn_kids/backend/internal/requestcontext"
 )
 
 // Repository defines the data access interface for users.
@@ -167,12 +168,12 @@ func (h *Handler) Login(c *gin.Context) {
 }
 
 func (h *Handler) Me(c *gin.Context) {
-	uid, exists := c.Get("user_id")
-	if !exists || uid == nil {
+	uid := requestcontext.GetUserID(c)
+	if uid == uuid.Nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-	u, err := h.repo.GetByID(c.Request.Context(), uid.(uuid.UUID))
+	u, err := h.repo.GetByID(c.Request.Context(), uid)
 	if err != nil || u == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
@@ -185,8 +186,8 @@ type UpdateMeRequest struct {
 }
 
 func (h *Handler) UpdateMe(c *gin.Context) {
-	uid, exists := c.Get("user_id")
-	if !exists || uid == nil {
+	uid := requestcontext.GetUserID(c)
+	if uid == uuid.Nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
@@ -199,12 +200,12 @@ func (h *Handler) UpdateMe(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "theme must be one of: default, light, cyberpunk, contrast-light, contrast-dark, cream, snow, midnight, forest"})
 		return
 	}
-	if err := h.repo.UpdateTheme(c.Request.Context(), uid.(uuid.UUID), req.Theme); err != nil {
+	if err := h.repo.UpdateTheme(c.Request.Context(), uid, req.Theme); err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	u, err := h.repo.GetByID(c.Request.Context(), uid.(uuid.UUID))
+	u, err := h.repo.GetByID(c.Request.Context(), uid)
 	if err != nil || u == nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -225,12 +226,11 @@ func (h *Handler) ListUsers(c *gin.Context) {
 
 func (h *Handler) DeleteUser(c *gin.Context) {
 	ctx := c.Request.Context()
-	uid, exists := c.Get("user_id")
-	if !exists || uid == nil {
+	currentID := requestcontext.GetUserID(c)
+	if currentID == uuid.Nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-	currentID := uid.(uuid.UUID)
 
 	targetID, err := uuid.Parse(c.Param("id"))
 	if err != nil {

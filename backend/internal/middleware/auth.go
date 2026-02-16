@@ -3,15 +3,21 @@ package middleware
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"learn_kids/backend/internal/domain/users"
+	"learn_kids/backend/internal/requestcontext"
 )
+
+const newTokenHeader = "X-New-Token"
 
 // Auth parses JWT from the Authorization header and sets user_id and user_role
 // in the Gin context. If no header is present, the request continues as anonymous.
 // If the header is present but the token is invalid, returns 401.
+// Sliding session: если до истечения токена осталось меньше SlidingRefreshThreshold,
+// в ответ добавляется заголовок X-New-Token с новым токеном.
 func Auth(userHandler *users.Handler) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		auth := c.GetHeader("Authorization")
@@ -26,14 +32,20 @@ func Auth(userHandler *users.Handler) gin.HandlerFunc {
 			return
 		}
 		token := strings.TrimPrefix(auth, prefix)
-		userID, role, err := userHandler.ParseToken(token)
+		userID, role, expiresAt, err := userHandler.ParseToken(token)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
 			c.Abort()
 			return
 		}
-		c.Set("user_id", userID)
+		c.Set(requestcontext.UserIDKey, userID)
 		c.Set("user_role", role)
+		// Sliding session: при остатке времени меньше порога выдаём новый токен
+		if !expiresAt.IsZero() && time.Until(expiresAt) < users.SlidingRefreshThreshold {
+			if newToken, err := userHandler.NewToken(userID, role); err == nil {
+				c.Header(newTokenHeader, newToken)
+			}
+		}
 		c.Next()
 	}
 }
@@ -41,7 +53,7 @@ func Auth(userHandler *users.Handler) gin.HandlerFunc {
 // RequireAuth aborts with 401 if the user is not authenticated.
 func RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		_, exists := c.Get("user_id")
+		_, exists := c.Get(requestcontext.UserIDKey)
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 			c.Abort()
@@ -72,13 +84,5 @@ func RequireTeacher() gin.HandlerFunc {
 
 // UserID returns the current user's ID from context, or uuid.Nil if not set.
 func UserID(c *gin.Context) uuid.UUID {
-	uid, ok := c.Get("user_id")
-	if !ok {
-		return uuid.Nil
-	}
-	id, ok := uid.(uuid.UUID)
-	if !ok {
-		return uuid.Nil
-	}
-	return id
+	return requestcontext.GetUserID(c)
 }
