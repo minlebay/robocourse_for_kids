@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { modules } from '../../shared/api'
 import { useAuth } from '../auth/AuthContext'
 import type { Module } from '../../shared/types'
@@ -15,6 +16,7 @@ export function CatalogPage() {
   const [createDesc, setCreateDesc] = useState('')
   const [createError, setCreateError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const { t } = useTranslation()
 
   const load = useCallback(() => {
     modules
@@ -48,7 +50,7 @@ export function CatalogPage() {
     [createTitle, createDesc, submitting]
   )
 
-  if (loading) return <p>Загрузка...</p>
+  if (loading) return <p>{t('common.loading')}</p>
   if (error) return <p className="error">{error}</p>
 
   const sortedList = [...list].sort((a, b) => a.sort_order - b.sort_order)
@@ -59,42 +61,42 @@ export function CatalogPage() {
   }))
 
   return (
-    <PageWithToc title="Каталог" items={tocItems}>
+    <PageWithToc title={t('catalog.title')} items={tocItems}>
       <div className="catalog">
-        <h1>Каталог уроков</h1>
+        <h1>{t('catalog.heading')}</h1>
         {user?.role === 'teacher' && (
           <div className="catalog-teacher-actions">
             {!showCreateForm ? (
               <button type="button" className="button-primary" onClick={() => setShowCreateForm(true)}>
-                Создать курс
+                {t('catalog.createCourse')}
               </button>
             ) : (
               <form className="catalog-create-form" onSubmit={handleCreate}>
-                <h3>Новый курс</h3>
+                <h3>{t('catalog.newCourse')}</h3>
                 {createError && <p className="error">{createError}</p>}
                 <div className="form-group">
-                  <label htmlFor="module-title">Название</label>
+                  <label htmlFor="module-title">{t('catalog.courseTitle')}</label>
                   <input
                     id="module-title"
                     value={createTitle}
                     onChange={(e) => setCreateTitle(e.target.value)}
-                    placeholder="Название курса"
+                    placeholder={t('catalog.courseTitlePlaceholder')}
                     required
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="module-desc">Описание</label>
+                  <label htmlFor="module-desc">{t('catalog.description')}</label>
                   <textarea
                     id="module-desc"
                     value={createDesc}
                     onChange={(e) => setCreateDesc(e.target.value)}
-                    placeholder="Краткое описание (необязательно)"
+                    placeholder={t('catalog.descriptionPlaceholder')}
                     rows={2}
                   />
                 </div>
                 <div className="form-actions">
                   <button type="submit" className="button-primary" disabled={submitting}>
-                    Создать
+                    {t('common.create')}
                   </button>
                   <button
                     type="button"
@@ -106,7 +108,7 @@ export function CatalogPage() {
                       setCreateError('')
                     }}
                   >
-                    Отмена
+                    {t('common.cancel')}
                   </button>
                 </div>
               </form>

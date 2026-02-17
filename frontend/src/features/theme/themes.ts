@@ -24,12 +24,31 @@ export interface Theme {
   cssVars: Record<string, string>
 }
 
+/** Циклические градиенты и «стеклянные» панели (прозрачнее + сильнее размытие) */
+const frostedDark = {
+  '--bg-gradient':
+    'linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #1e1b4b, #0f172a)',
+  '--glass-bg': 'rgba(30, 41, 59, 0.48)',
+  '--glass-border': 'rgba(148, 163, 184, 0.25)',
+  '--glass-blur': '24px',
+  '--glass-shadow': '0 8px 32px rgba(0, 0, 0, 0.25)',
+}
+const frostedLight = {
+  '--bg-gradient':
+    'linear-gradient(-45deg, #fce7f3, #e9d5ff, #dbeafe, #e9d5ff, #fce7f3)',
+  '--glass-bg': 'rgba(255, 255, 255, 0.52)',
+  '--glass-border': 'rgba(226, 232, 240, 0.65)',
+  '--glass-blur': '24px',
+  '--glass-shadow': '0 8px 32px rgba(0, 0, 0, 0.08)',
+}
+
 export const themes: Record<ThemeId, Theme> = {
   default: {
     id: 'default',
     name: 'Тёмная (по умолчанию)',
     previewColors: ['#0f172a', '#e07c24', '#e2e8f0', '#94a3b8'],
     cssVars: {
+      ...frostedDark,
       '--bg': '#0f172a',
       '--bg-card': '#1e293b',
       '--accent': '#e07c24',
@@ -50,6 +69,7 @@ export const themes: Record<ThemeId, Theme> = {
     name: 'Светлая',
     previewColors: ['#f8fafc', '#ea580c', '#1e293b', '#64748b'],
     cssVars: {
+      ...frostedLight,
       '--bg': '#f1f5f9',
       '--bg-card': '#ffffff',
       '--accent': '#ea580c',
@@ -68,21 +88,28 @@ export const themes: Record<ThemeId, Theme> = {
   cyberpunk: {
     id: 'cyberpunk',
     name: 'Киберпанк',
-    previewColors: ['#0d0221', '#00ff9f', '#ff00e5', '#00d4ff'],
+    previewColors: ['#0a0118', '#00b377', '#9900b3', '#006680'],
     cssVars: {
-      '--bg': '#0d0221',
+      /* Анимированный градиент: -45deg, с переходом в чёрный */
+      '--bg-gradient':
+        'linear-gradient(-45deg, #0a0118, #1a0a2e, #2e1065, #000000, #1a0a2e, #0a0118)',
+      '--glass-bg': 'rgba(20, 8, 36, 0.5)',
+      '--glass-border': 'rgba(55, 25, 95, 0.4)',
+      '--glass-blur': '24px',
+      '--glass-shadow': '0 8px 32px rgba(0, 0, 0, 0.4)',
+      '--bg': '#0a0118',
       '--bg-card': '#1a0a2e',
-      '--accent': '#00ff9f',
-      '--accent-hover': '#00d4ff',
-      '--accent-soft': '#0d3d2e',
-      '--text': '#e0e0ff',
-      '--text-muted': '#a78bfa',
-      '--border': '#4c1d95',
-      '--success': '#00ff9f',
-      '--success-soft': '#0d3d2e',
-      '--header-bg': '#0d0221',
-      '--header-text': '#00ff9f',
-      '--accent-on': '#0d0221',
+      '--accent': '#00b377',
+      '--accent-hover': '#00d99e',
+      '--accent-soft': '#0a2e22',
+      '--text': '#c4c0d4',
+      '--text-muted': '#7c6b9e',
+      '--border': '#3b2d5c',
+      '--success': '#00a86b',
+      '--success-soft': '#0a2e22',
+      '--header-bg': '#0a0118',
+      '--header-text': '#00b377',
+      '--accent-on': '#0a0118',
     },
   },
   // Контрастная светлая
@@ -91,6 +118,7 @@ export const themes: Record<ThemeId, Theme> = {
     name: 'Контрастная светлая',
     previewColors: ['#ffffff', '#0066cc', '#000000', '#333333'],
     cssVars: {
+      ...frostedLight,
       '--bg': '#f5f5f5',
       '--bg-card': '#ffffff',
       '--accent': '#0066cc',
@@ -112,6 +140,12 @@ export const themes: Record<ThemeId, Theme> = {
     name: 'Контрастная тёмная',
     previewColors: ['#0a0a0a', '#00aaff', '#ffffff', '#b0b0b0'],
     cssVars: {
+      '--bg-gradient':
+        'linear-gradient(-45deg, #0a0a0a, #0f172a, #1e3a8a, #0f172a, #0a0a0a)',
+      '--glass-bg': 'rgba(26, 26, 26, 0.5)',
+      '--glass-border': 'rgba(64, 64, 64, 0.5)',
+      '--glass-blur': '24px',
+      '--glass-shadow': '0 8px 32px rgba(0, 0, 0, 0.35)',
       '--bg': '#0a0a0a',
       '--bg-card': '#1a1a1a',
       '--accent': '#00aaff',
@@ -133,6 +167,7 @@ export const themes: Record<ThemeId, Theme> = {
     name: 'Кремовая',
     previewColors: ['#fef9f3', '#c2410c', '#292524', '#78716c'],
     cssVars: {
+      ...frostedLight,
       '--bg': '#fef9f3',
       '--bg-card': '#fff7ed',
       '--accent': '#c2410c',
@@ -153,6 +188,7 @@ export const themes: Record<ThemeId, Theme> = {
     name: 'Снежная',
     previewColors: ['#f0f9ff', '#0369a1', '#0c4a6e', '#64748b'],
     cssVars: {
+      ...frostedLight,
       '--bg': '#f0f9ff',
       '--bg-card': '#ffffff',
       '--accent': '#0369a1',
@@ -174,6 +210,7 @@ export const themes: Record<ThemeId, Theme> = {
     name: 'Полночь',
     previewColors: ['#0c1222', '#38bdf8', '#e0f2fe', '#7dd3fc'],
     cssVars: {
+      ...frostedDark,
       '--bg': '#0c1222',
       '--bg-card': '#1e293b',
       '--accent': '#38bdf8',
@@ -194,6 +231,12 @@ export const themes: Record<ThemeId, Theme> = {
     name: 'Лес',
     previewColors: ['#0f1419', '#22c55e', '#dcfce7', '#86efac'],
     cssVars: {
+      '--bg-gradient':
+        'linear-gradient(-45deg, #0f1419, #14532d, #166534, #14532d, #0f1419)',
+      '--glass-bg': 'rgba(26, 36, 33, 0.5)',
+      '--glass-border': 'rgba(22, 101, 52, 0.35)',
+      '--glass-blur': '24px',
+      '--glass-shadow': '0 8px 32px rgba(0, 0, 0, 0.3)',
       '--bg': '#0f1419',
       '--bg-card': '#1a2421',
       '--accent': '#22c55e',

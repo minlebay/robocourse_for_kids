@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { chat as chatApi, type ChatMessage } from '../../shared/api'
 import { CHAT_MESSAGE_MAX, validateChatMessage } from '../../shared/validation'
 import { useAuth } from '../auth/AuthContext'
@@ -32,6 +33,7 @@ interface SpeechRecognitionErrorEvent {
 
 export function LessonChat({ lessonId }: { lessonId: string }) {
   const { user } = useAuth()
+  const { t, i18n } = useTranslation()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -40,6 +42,7 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
   const [isRecording, setIsRecording] = useState(false)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const transcriptRef = useRef('')
+  const speechLang = i18n.language === 'en' ? 'en-US' : 'ru-RU'
 
   useEffect(() => {
     if (!user) {
@@ -73,9 +76,9 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
       await chatApi.clearHistory(lessonId)
       setMessages([])
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось очистить чат')
+      setError(e instanceof Error ? e.message : t('chat.clearChatError'))
     }
-  }, [user, lessonId])
+  }, [user, lessonId, t])
 
   const send = useCallback(
     async (text: string) => {
@@ -83,7 +86,7 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
       if (!trimmed || loading) return
       const msgErr = validateChatMessage(text)
       if (msgErr) {
-        setError(msgErr)
+        setError(t(msgErr.key, msgErr.params as Record<string, string | number>))
         return
       }
       setError('')
@@ -98,19 +101,19 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
           { role: 'model', text: res.text || '', id: `model-${Date.now()}` },
         ])
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Ошибка запроса')
+        setError(e instanceof Error ? e.message : t('chat.requestError'))
         setMessages((prev) => prev.slice(0, -1))
       } finally {
         setLoading(false)
       }
     },
-    [lessonId, loading]
+    [lessonId, loading, t]
   )
 
   const startVoice = useCallback(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SR) {
-      setError('Голосовой ввод не поддерживается. Используйте Chrome или Edge.')
+      setError(t('chat.voiceUnsupported'))
       return
     }
     if (recognitionRef.current) return
@@ -118,7 +121,7 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
     const recognition = new SR() as SpeechRecognition
     recognition.continuous = true
     recognition.interimResults = true
-    recognition.lang = 'ru-RU'
+    recognition.lang = speechLang
     recognition.onresult = (e: SpeechRecognitionEvent) => {
       const results = e.results
       for (let i = e.resultIndex; i < results.length; i++) {
@@ -144,11 +147,11 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
       setIsRecording(false)
       const errCode = e?.error ?? 'unknown'
       if (errCode === 'not-allowed' || errCode === 'permission-denied') {
-        setError('Разрешите доступ к микрофону в настройках браузера.')
+        setError(t('chat.voicePermission'))
       } else if (errCode === 'no-speech') {
-        setError('Речь не распознана. Попробуйте ещё раз.')
+        setError(t('chat.voiceNoSpeech'))
       } else {
-        setError('Ошибка голосового ввода. Попробуйте Chrome или Edge.')
+        setError(t('chat.voiceError'))
       }
     }
     recognitionRef.current = recognition
@@ -159,9 +162,9 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
     } catch {
       recognitionRef.current = null
       setIsRecording(false)
-      setError('Не удалось запустить распознавание речи.')
+      setError(t('chat.voiceStartError'))
     }
-  }, [])
+  }, [t, speechLang])
 
   const stopVoice = useCallback(() => {
     if (recognitionRef.current) {
@@ -172,45 +175,45 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
   }, [])
 
   return (
-    <section className="lesson-chat" aria-label="Чат с помощником по уроку">
+    <section className="lesson-chat" aria-label={t('chat.title')}>
       <div className="lesson-chat-header">
-        <h2>Спроси у помощника</h2>
+        <h2>{t('chat.title')}</h2>
         {user && messages.length > 0 && (
           <button
             type="button"
             className="lesson-chat-clear"
             onClick={clearChat}
             disabled={loading}
-            aria-label="Очистить чат"
+            aria-label={t('chat.clearChat')}
           >
-            Очистить чат
+            {t('chat.clearChat')}
           </button>
         )}
       </div>
       <div className="lesson-chat-messages">
         {loadingHistory && (
-          <p className="lesson-chat-placeholder">Загрузка истории…</p>
+          <p className="lesson-chat-placeholder">{t('chat.loadingHistory')}</p>
         )}
         {!loadingHistory && messages.length === 0 && !user && (
           <p className="lesson-chat-placeholder">
-            Войдите, чтобы общаться с помощником и сохранять историю чата.
+            {t('chat.loginToChat')}
           </p>
         )}
         {!loadingHistory && messages.length === 0 && user && (
           <p className="lesson-chat-placeholder">
-            Напиши вопрос по уроку или зажми кнопку микрофона и скажи команду голосом.
+            {t('chat.placeholder')}
           </p>
         )}
         {messages.map((m) => (
           <div key={m.id ?? m.role + m.text.slice(0, 20)} className={`lesson-chat-msg lesson-chat-msg-${m.role}`}>
-            <span className="lesson-chat-msg-role">{m.role === 'user' ? 'Ты' : 'Помощник'}</span>
+            <span className="lesson-chat-msg-role">{m.role === 'user' ? t('chat.you') : t('chat.assistant')}</span>
             <div className="lesson-chat-msg-text">{m.text}</div>
           </div>
         ))}
         {loading && (
           <div className="lesson-chat-msg lesson-chat-msg-model">
-            <span className="lesson-chat-msg-role">Помощник</span>
-            <div className="lesson-chat-msg-text lesson-chat-msg-loading">Думаю...</div>
+            <span className="lesson-chat-msg-role">{t('chat.assistant')}</span>
+            <div className="lesson-chat-msg-text lesson-chat-msg-loading">{t('chat.thinking')}</div>
           </div>
         )}
       </div>
@@ -219,19 +222,19 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
         <input
           type="text"
           className="lesson-chat-input"
-          placeholder={user ? 'Введите вопрос...' : 'Войдите, чтобы отправить'}
+          placeholder={user ? t('chat.inputPlaceholder') : t('chat.inputPlaceholderGuest')}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => user && e.key === 'Enter' && !e.shiftKey && send(input)}
           disabled={loading || !user}
           maxLength={CHAT_MESSAGE_MAX}
-          aria-label="Текст вопроса"
+          aria-label={t('chat.inputAria')}
         />
         <button
           type="button"
           className={`lesson-chat-voice ${isRecording ? 'recording' : ''}`}
-          title="Зажми и говори — отпусти, чтобы вставить текст"
-          aria-label="Голосовой ввод: зажми и говори"
+          title={t('chat.voiceHold')}
+          aria-label={t('chat.voiceAria')}
           disabled={!user}
           onPointerDown={(e) => {
             e.preventDefault()
@@ -251,8 +254,8 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
         >
           {isRecording ? '🔴' : '🎤'}
         </button>
-        <span className="lesson-chat-voice-hint" title="Зажми кнопку, говори, отпусти — текст появится в поле">
-          Зажми и говори
+        <span className="lesson-chat-voice-hint" title={t('chat.voiceHold')}>
+          {t('chat.voiceHold')}
         </span>
         <span className="lesson-chat-char-hint" aria-live="polite">
           {input.length}/{CHAT_MESSAGE_MAX}
@@ -262,9 +265,9 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
           className="lesson-chat-send"
           onClick={() => send(input)}
           disabled={loading || !input.trim() || !user}
-          aria-label="Отправить"
+          aria-label={t('chat.sendAria')}
         >
-          Отправить
+          {t('common.send')}
         </button>
       </div>
     </section>

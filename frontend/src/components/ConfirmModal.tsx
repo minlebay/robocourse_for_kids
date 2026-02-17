@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 const FOCUSABLE_SELECTOR =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -19,12 +20,14 @@ export function ConfirmModal({
   title,
   children,
   confirmLabel,
-  cancelLabel = 'Отмена',
+  cancelLabel,
   variant = 'primary',
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
+  const { t } = useTranslation()
+  const resolvedCancelLabel = cancelLabel ?? t('common.cancel')
 
   useEffect(() => {
     if (!open) return
@@ -85,7 +88,7 @@ export function ConfirmModal({
             onClick={onCancel}
             autoFocus
           >
-            {cancelLabel}
+            {resolvedCancelLabel}
           </button>
           <button
             type="button"

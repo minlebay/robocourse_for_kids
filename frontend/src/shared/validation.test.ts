@@ -15,13 +15,13 @@ import {
 
 describe('validateLogin', () => {
   it('returns error when login too short', () => {
-    expect(validateLogin('ab')).toBe(`Логин не менее ${AUTH_LOGIN_MIN} символов`)
-    expect(validateLogin('')).toBe(`Логин не менее ${AUTH_LOGIN_MIN} символов`)
+    expect(validateLogin('ab')).toEqual({ key: 'validation.login_min', params: { min: AUTH_LOGIN_MIN } })
+    expect(validateLogin('')).toEqual({ key: 'validation.login_min', params: { min: AUTH_LOGIN_MIN } })
   })
 
   it('returns error when login too long', () => {
     const long = 'a'.repeat(AUTH_LOGIN_MAX + 1)
-    expect(validateLogin(long)).toBe(`Логин не более ${AUTH_LOGIN_MAX} символов`)
+    expect(validateLogin(long)).toEqual({ key: 'validation.login_max', params: { max: AUTH_LOGIN_MAX } })
   })
 
   it('returns null for valid login', () => {
@@ -33,12 +33,12 @@ describe('validateLogin', () => {
 
 describe('validatePassword', () => {
   it('returns error when password too short', () => {
-    expect(validatePassword('12345')).toBe(`Пароль не менее ${AUTH_PASSWORD_MIN} символов`)
+    expect(validatePassword('12345')).toEqual({ key: 'validation.password_min', params: { min: AUTH_PASSWORD_MIN } })
   })
 
   it('returns error when password too long', () => {
     const long = 'a'.repeat(AUTH_PASSWORD_MAX + 1)
-    expect(validatePassword(long)).toBe(`Пароль не более ${AUTH_PASSWORD_MAX} символов`)
+    expect(validatePassword(long)).toEqual({ key: 'validation.password_max', params: { max: AUTH_PASSWORD_MAX } })
   })
 
   it('returns null for valid password', () => {
@@ -49,13 +49,13 @@ describe('validatePassword', () => {
 
 describe('validateName', () => {
   it('returns error for empty or whitespace', () => {
-    expect(validateName('')).toBe('Введите имя')
-    expect(validateName('   ')).toBe('Введите имя')
+    expect(validateName('')).toEqual({ key: 'validation.name_required' })
+    expect(validateName('   ')).toEqual({ key: 'validation.name_required' })
   })
 
   it('returns error when name too long', () => {
     const long = 'а'.repeat(AUTH_NAME_MAX + 1)
-    expect(validateName(long)).toBe(`Имя не более ${AUTH_NAME_MAX} символов`)
+    expect(validateName(long)).toEqual({ key: 'validation.name_max', params: { max: AUTH_NAME_MAX } })
   })
 
   it('returns null for valid name', () => {
@@ -67,13 +67,13 @@ describe('validateName', () => {
 
 describe('validateChatMessage', () => {
   it('returns error for empty or whitespace', () => {
-    expect(validateChatMessage('')).toBe('Введите сообщение')
-    expect(validateChatMessage('   ')).toBe('Введите сообщение')
+    expect(validateChatMessage('')).toEqual({ key: 'validation.message_required' })
+    expect(validateChatMessage('   ')).toEqual({ key: 'validation.message_required' })
   })
 
   it('returns error when over limit', () => {
     const long = 'a'.repeat(CHAT_MESSAGE_MAX + 1)
-    expect(validateChatMessage(long)).toBe(`Не более ${CHAT_MESSAGE_MAX} символов`)
+    expect(validateChatMessage(long)).toEqual({ key: 'validation.message_max', params: { max: CHAT_MESSAGE_MAX } })
   })
 
   it('returns null for valid message', () => {

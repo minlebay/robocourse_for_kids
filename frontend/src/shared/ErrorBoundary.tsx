@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 type Props = {
   children: ReactNode
@@ -9,6 +10,25 @@ type Props = {
 type State = {
   hasError: boolean
   error: Error | null
+}
+
+function ErrorFallback({
+  message,
+  onRetry,
+}: {
+  message: string
+  onRetry: () => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className="error-boundary" role="alert">
+      <h2>{t('errors.somethingWrong')}</h2>
+      <p className="error-boundary-message">{message}</p>
+      <button type="button" className="button-primary" onClick={onRetry}>
+        {t('common.retry')}
+      </button>
+    </div>
+  )
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -30,17 +50,10 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError && this.state.error) {
       if (this.props.fallback) return this.props.fallback
       return (
-        <div className="error-boundary" role="alert">
-          <h2>Что-то пошло не так</h2>
-          <p className="error-boundary-message">{this.state.error.message}</p>
-          <button
-            type="button"
-            className="button-primary"
-            onClick={() => this.setState({ hasError: false, error: null })}
-          >
-            Попробовать снова
-          </button>
-        </div>
+        <ErrorFallback
+          message={this.state.error.message}
+          onRetry={() => this.setState({ hasError: false, error: null })}
+        />
       )
     }
     return this.props.children

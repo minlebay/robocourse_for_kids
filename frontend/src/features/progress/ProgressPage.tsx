@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { progress as progressApi } from '../../shared/api'
-import type { UserProgress } from '../../shared/types'
-import { LESSON_STATUS_LABELS } from '../../shared/types'
+import type { UserProgress, LessonStatus } from '../../shared/types'
 
 export function ProgressPage() {
   const [progress, setProgress] = useState<UserProgress | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const { t } = useTranslation()
 
   useEffect(() => {
     progressApi.get()
@@ -16,32 +17,34 @@ export function ProgressPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <p>Загрузка...</p>
+  if (loading) return <p>{t('common.loading')}</p>
   if (error) return <p className="error">{error}</p>
-  if (!progress) return <p>Нет данных о прогрессе.</p>
+  if (!progress) return <p>{t('progress.noData')}</p>
 
-  const byStatus = (status: keyof typeof LESSON_STATUS_LABELS) =>
+  const byStatus = (status: LessonStatus) =>
     progress.lessons.filter((l) => l.status === status)
+  const statusLabel = (status: LessonStatus) =>
+    t(`progress.status_${status}` as 'progress.status_not_started')
 
   return (
     <div className="progress-page">
-      <h1>Мой прогресс</h1>
-      <p>Выполнено уроков: {byStatus('completed').length}</p>
-      <p>В процессе: {byStatus('in_progress').length}</p>
+      <h1>{t('progress.title')}</h1>
+      <p>{t('progress.completedCount', { count: byStatus('completed').length })}</p>
+      <p>{t('progress.inProgressCount', { count: byStatus('in_progress').length })}</p>
       <section>
-        <h2>По статусам</h2>
+        <h2>{t('progress.byStatus')}</h2>
         <ul>
           {progress.lessons.map((l) => (
             <li key={l.lesson_id}>
               <Link to={`/lessons/${l.lesson_id}`}>
-                {l.lesson_title || `Урок ${l.lesson_id.slice(0, 8)}…`}
+                {l.lesson_title || t('progress.lessonFallback', { id: l.lesson_id.slice(0, 8) })}
               </Link>
-              {' — '}{LESSON_STATUS_LABELS[l.status] ?? l.status}
+              {' — '}{statusLabel(l.status)}
             </li>
           ))}
         </ul>
       </section>
-      <p>Отмечено пунктов чек-листа: {progress.checklist?.length ?? 0}</p>
+      <p>{t('progress.checklistCount', { count: progress.checklist?.length ?? 0 })}</p>
     </div>
   )
 }

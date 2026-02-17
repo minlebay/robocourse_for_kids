@@ -48,6 +48,7 @@ function applyTheme(themeId: ThemeId) {
   const theme = themes[themeId]
   const root = document.documentElement
   if (!theme) return
+  root.setAttribute('data-theme', themeId)
   for (const [key, value] of Object.entries(theme.cssVars)) {
     root.style.setProperty(key, value)
   }

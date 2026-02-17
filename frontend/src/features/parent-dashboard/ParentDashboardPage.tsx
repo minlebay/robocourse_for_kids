@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { users as usersApi } from '../../shared/api'
 import type { User, UserProgress } from '../../shared/types'
-import { LESSON_STATUS_LABELS } from '../../shared/types'
 import { ConfirmModal } from '../../components'
+
+function statusLabel(t: (key: string) => string, status: string): string {
+  const key = `progress.status_${status}` as 'progress.status_not_started'
+  return t(key)
+}
 
 export function ParentDashboardPage() {
   const { user: currentUser } = useAuth()
@@ -14,6 +19,7 @@ export function ParentDashboardPage() {
   const [error, setError] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmUser, setConfirmUser] = useState<User | null>(null)
+  const { t } = useTranslation()
 
   const loadUsers = useCallback(() => {
     usersApi
@@ -55,15 +61,15 @@ export function ParentDashboardPage() {
         setUserList((prev) => prev.filter((x) => x.id !== u.id))
         if (selectedUserId === u.id) setSelectedUserId(null)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Ошибка удаления')
+        setError(err instanceof Error ? err.message : t('dashboard.deleteUserError'))
       } finally {
         setDeletingId(null)
       }
     },
-    [confirmUser, selectedUserId]
+    [confirmUser, selectedUserId, t]
   )
 
-  if (loading) return <p>Загрузка...</p>
+  if (loading) return <p>{t('common.loading')}</p>
   if (error) return <p className="error">{error}</p>
 
   const selectedUser = userList.find((u) => u.id === selectedUserId)
@@ -72,21 +78,21 @@ export function ParentDashboardPage() {
     <div className="parent-dashboard">
       <ConfirmModal
         open={!!confirmUser}
-        title="Удалить пользователя?"
-        confirmLabel="Удалить"
+        title={t('dashboard.confirmDeleteUser')}
+        confirmLabel={t('common.delete')}
         variant="danger"
         onConfirm={doDeleteUser}
         onCancel={() => setConfirmUser(null)}
       >
         {confirmUser
-          ? `Удалить пользователя ${confirmUser.name} (${confirmUser.login})?`
+          ? t('dashboard.confirmDeleteUserMessage', { name: confirmUser.name, login: confirmUser.login })
           : ''}
       </ConfirmModal>
-      <h1>Дашборд родителя</h1>
-      <p>Выберите ученика, чтобы посмотреть прогресс.</p>
+      <h1>{t('dashboard.title')}</h1>
+      <p>{t('dashboard.selectStudent')}</p>
       <div className="dashboard-layout">
         <aside className="user-list">
-          <h2>Пользователи</h2>
+          <h2>{t('dashboard.users')}</h2>
           <ul>
             {userList.map((u) => (
               <li key={u.id} className="user-list-item">
@@ -94,7 +100,7 @@ export function ParentDashboardPage() {
                   className={selectedUserId === u.id ? 'active' : ''}
                   onClick={() => setSelectedUserId(u.id)}
                 >
-                  {u.name} ({u.login}) {u.role === 'teacher' ? ' [учитель]' : ''}
+                  {u.name} ({u.login}) {u.role === 'teacher' ? t('dashboard.teacherBadge') : ''}
                 </button>
                 {u.id !== currentUser?.id && (
                   <button
@@ -105,7 +111,7 @@ export function ParentDashboardPage() {
                       requestDeleteUser(u)
                     }}
                     disabled={deletingId === u.id}
-                    title="Удалить пользователя"
+                    title={t('dashboard.deleteUser')}
                   >
                     {deletingId === u.id ? '…' : '✕'}
                   </button>
@@ -117,35 +123,35 @@ export function ParentDashboardPage() {
         <main className="progress-panel">
           {selectedUser && (
             <>
-              <h2>Прогресс: {selectedUser.name}</h2>
+              <h2>{t('dashboard.progressLabel', { name: selectedUser.name })}</h2>
               {progress === null ? (
-                <p>Загрузка прогресса...</p>
+                <p>{t('dashboard.loadingProgress')}</p>
               ) : (
                 <div>
-                  <h3>Уроки</h3>
+                  <h3>{t('dashboard.lessons')}</h3>
                   {progress.lessons.length === 0 ? (
-                    <p>Нет данных о прогрессе по урокам.</p>
+                    <p>{t('dashboard.noLessonsProgress')}</p>
                   ) : (
                     <ul>
                       {progress.lessons.map((l) => (
                         <li key={l.lesson_id}>
-                          {l.lesson_title || `Урок ${l.lesson_id.slice(0, 8)}…`} — {LESSON_STATUS_LABELS[l.status] ?? l.status}
+                          {l.lesson_title || t('progress.lessonFallback', { id: l.lesson_id.slice(0, 8) })} — {statusLabel(t, l.status)}
                         </li>
                       ))}
                     </ul>
                   )}
-                  <h3>Чек-листы</h3>
+                  <h3>{t('dashboard.checklists')}</h3>
                   {!progress.checklist || progress.checklist.length === 0 ? (
-                    <p>Нет отмеченных пунктов.</p>
+                    <p>{t('dashboard.noChecklistItems')}</p>
                   ) : (
-                    <p>Отмечено пунктов: {progress.checklist.length}</p>
+                    <p>{t('dashboard.checklistCount', { count: progress.checklist.length })}</p>
                   )}
                 </div>
               )}
             </>
           )}
           {!selectedUserId && userList.length > 0 && (
-            <p>Выберите пользователя слева.</p>
+            <p>{t('dashboard.selectUser')}</p>
           )}
         </main>
       </div>

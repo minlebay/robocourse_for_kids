@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
@@ -40,6 +41,7 @@ export function LessonPage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const load = useCallback(() => {
     if (!id) return
@@ -206,11 +208,11 @@ export function LessonPage() {
   const saveLesson = useCallback(() => {
     if (!id || !editForm) return
     if (!editForm.title.trim()) {
-      setSaveError('Введите название урока')
+      setSaveError(t('validation.lesson_title_required'))
       return
     }
     if (editForm.steps.some((s) => !s.title.trim())) {
-      setSaveError('У каждого шага должен быть заголовок')
+      setSaveError(t('validation.step_title_required'))
       return
     }
     setSaveError('')
@@ -226,12 +228,12 @@ export function LessonPage() {
         setEditForm(null)
       })
       .catch((err) => setSaveError(err.message))
-  }, [id, editForm])
+  }, [id, editForm, t])
 
   const addStep = useCallback(() => {
     setEditForm((prev) =>
       prev
-        ? { ...prev, steps: [...prev.steps, { id: `new-${Date.now()}`, title: 'Новый шаг', content: '' }] }
+        ? { ...prev, steps: [...prev.steps, { id: `new-${Date.now()}`, title: '', content: '' }] }
         : prev
     )
   }, [])
@@ -254,9 +256,9 @@ export function LessonPage() {
     })
   }, [])
 
-  if (loading) return <p>Загрузка...</p>
+  if (loading) return <p>{t('common.loading')}</p>
   if (error) return <p className="error">{error}</p>
-  if (!lesson) return <p className="error">Урок не найден</p>
+  if (!lesson) return <p className="error">{t('lesson.notFound')}</p>
 
   const status = getLessonStatus()
   const orderedLessons = (module_?.lessons ?? []).sort((a, b) => a.sort_order - b.sort_order)
@@ -292,7 +294,7 @@ export function LessonPage() {
         <li key={m.id}>
           <figure className="material-image">
             <a href={safeUrl} target="_blank" rel="noreferrer">
-              <img src={safeUrl} alt={m.title || 'Иллюстрация'} loading="lazy" />
+              <img src={safeUrl} alt={m.title || t('lesson.illustration')} loading="lazy" />
             </a>
             {m.title && <figcaption>{m.title}</figcaption>}
           </figure>
@@ -318,7 +320,7 @@ export function LessonPage() {
     href: `/lessons/${l.id}`,
     active: l.id === lesson.id,
   }))
-  const tocTitle = module_ ? module_.title : 'Урок'
+  const tocTitle = module_ ? module_.title : t('lesson.tocTitle')
 
   const lessonContent = (
     <div className={`lesson-page${editing && editForm ? ' lesson-page--editing' : ''}`}>
@@ -327,26 +329,26 @@ export function LessonPage() {
       {user?.role === 'teacher' && !editing && (
         <div className="lesson-edit-bar">
           <button type="button" className="button-primary" onClick={startEditing}>
-            Редактировать
+            {t('lesson.editLesson')}
           </button>
           <button
             type="button"
             className="button-danger-outline"
             onClick={requestDeleteLesson}
             disabled={deleting}
-            title="Удалить урок"
+            title={t('lesson.deleteLesson')}
           >
-            {deleting ? '…' : 'Удалить урок'}
+            {deleting ? '…' : t('lesson.deleteLesson')}
           </button>
         </div>
       )}
 
       {editing && editForm ? (
         <section className="lesson-edit-form">
-          <h2>Редактирование урока</h2>
+          <h2>{t('lesson.editFormTitle')}</h2>
           {saveError && <p className="error">{saveError}</p>}
           <div className="form-group">
-            <label htmlFor="edit-lesson-title">Название</label>
+            <label htmlFor="edit-lesson-title">{t('catalog.courseTitle')}</label>
             <input
               id="edit-lesson-title"
               value={editForm.title}
@@ -354,7 +356,7 @@ export function LessonPage() {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="edit-lesson-desc">Описание</label>
+            <label htmlFor="edit-lesson-desc">{t('catalog.description')}</label>
             <textarea
               id="edit-lesson-desc"
               rows={2}
@@ -362,11 +364,11 @@ export function LessonPage() {
               onChange={(e) => setEditForm((prev) => prev && { ...prev, description: e.target.value })}
             />
           </div>
-          <h3>Шаги</h3>
+          <h3>{t('lesson.steps')}</h3>
           {editForm.steps.map((step, idx) => (
             <div key={step.id} className="lesson-edit-step">
               <div className="form-group">
-                <label>Заголовок шага {idx + 1}</label>
+                <label>{t('lesson.stepHeading', { n: idx + 1 })}</label>
                 <input
                   value={step.title}
                   onChange={(e) => updateEditStep(step.id, 'title', e.target.value)}
@@ -376,7 +378,7 @@ export function LessonPage() {
                 <MarkdownStepEditor
                   value={step.content}
                   onChange={(v) => updateEditStep(step.id, 'content', v)}
-                  label="Контент (Markdown)"
+                  label={t('lesson.stepContentLabel')}
                 />
               </div>
               <button
@@ -385,19 +387,19 @@ export function LessonPage() {
                 onClick={() => removeStep(step.id)}
                 disabled={editForm.steps.length <= 1}
               >
-                Удалить шаг
+                {t('lesson.deleteStep')}
               </button>
             </div>
           ))}
           <div className="form-actions">
             <button type="button" className="button-secondary" onClick={addStep}>
-              Добавить шаг
+              {t('module.addStep')}
             </button>
             <button type="button" className="button-primary" onClick={saveLesson}>
-              Сохранить
+              {t('common.save')}
             </button>
             <button type="button" className="button-secondary" onClick={cancelEditing}>
-              Отмена
+              {t('common.cancel')}
             </button>
           </div>
         </section>
@@ -405,9 +407,9 @@ export function LessonPage() {
         <>
       <h1>{lesson.title}</h1>
       {lesson.description && <p className="description">{lesson.description}</p>}
-      <p className="meta">Тип: {lesson.lesson_type}</p>
+      <p className="meta">{t('lesson.typeLabel')}: {t(`module.type${lesson.lesson_type.charAt(0).toUpperCase() + lesson.lesson_type.slice(1)}` as 'module.typeTheory')}</p>
       {lesson.tags && lesson.tags.length > 0 && (
-        <p className="tags">Теги: {lesson.tags.join(', ')}</p>
+        <p className="tags">{t('lesson.tags')}: {lesson.tags.join(', ')}</p>
       )}
 
       <LessonProgressBar
@@ -418,7 +420,7 @@ export function LessonPage() {
 
       {lesson.steps && lesson.steps.length > 0 && (
         <section className="steps">
-          <h2>Шаги</h2>
+          <h2>{t('lesson.steps')}</h2>
           {[...lesson.steps]
             .sort((a, b) => a.sort_order - b.sort_order)
             .map((step) => (
@@ -434,7 +436,7 @@ export function LessonPage() {
 
       {lesson.checklist && lesson.checklist.length > 0 && (
         <section className="checklist">
-          <h2>Чек-лист</h2>
+          <h2>{t('lesson.checklist')}</h2>
           <ul>
             {[...lesson.checklist]
               .sort((a, b) => a.sort_order - b.sort_order)
@@ -457,10 +459,10 @@ export function LessonPage() {
 
       {materials.length > 0 && (
         <section className="materials">
-          <h2>Материалы</h2>
+          <h2>{t('lesson.materials')}</h2>
           <div className="materials-inner">
             {simulatorMaterials.length > 0 && (
-              <ul className="materials-list materials-list-trainer" aria-label="Тренажёр">
+              <ul className="materials-list materials-list-trainer" aria-label={t('lesson.trainer')}>
                 {simulatorMaterials.map(renderMaterial)}
               </ul>
             )}
@@ -473,12 +475,12 @@ export function LessonPage() {
         </section>
       )}
 
-      <div className="lesson-reactions" aria-label="Реакции к уроку">
+      <div className="lesson-reactions" aria-label={t('lesson.reactions')}>
         <button
           type="button"
           className={`lesson-reaction-btn ${lesson.user_reaction === 'like' ? 'active' : ''}`}
           onClick={user ? () => (lesson.user_reaction === 'like' ? clearLessonReaction() : setLessonReaction('like')) : undefined}
-          title="Нравится"
+          title={t('comments.like')}
           aria-pressed={lesson.user_reaction === 'like'}
           disabled={!user}
         >
@@ -488,7 +490,7 @@ export function LessonPage() {
           type="button"
           className={`lesson-reaction-btn ${lesson.user_reaction === 'dislike' ? 'active' : ''}`}
           onClick={user ? () => (lesson.user_reaction === 'dislike' ? clearLessonReaction() : setLessonReaction('dislike')) : undefined}
-          title="Не нравится"
+          title={t('comments.dislike')}
           aria-pressed={lesson.user_reaction === 'dislike'}
           disabled={!user}
         >
@@ -513,13 +515,13 @@ export function LessonPage() {
     >
       <ConfirmModal
         open={confirmDelete}
-        title="Удалить урок?"
-        confirmLabel="Удалить"
+        title={t('lesson.confirmDelete')}
+        confirmLabel={t('common.delete')}
         variant="danger"
         onConfirm={doDeleteLesson}
         onCancel={() => setConfirmDelete(false)}
       >
-        {lesson ? `Удалить урок «${lesson.title}»?` : ''}
+        {lesson ? t('lesson.confirmDeleteMessage', { title: lesson.title }) : ''}
       </ConfirmModal>
       {lessonContent}
     </PageWithToc>

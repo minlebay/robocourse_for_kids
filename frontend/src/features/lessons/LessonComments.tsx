@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { lessons as lessonsApi } from '../../shared/api'
 import { useAuth } from '../auth/AuthContext'
 import { COMMENT_MAX } from '../../shared/validation'
 import type { LessonComment } from '../../shared/types'
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, locale: string): string {
   try {
     const d = new Date(iso)
-    return d.toLocaleDateString('ru-RU', {
+    return d.toLocaleDateString(locale === 'en' ? 'en-US' : 'ru-RU', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
@@ -21,12 +22,14 @@ function formatDate(iso: string): string {
 
 export function LessonComments({ lessonId }: { lessonId: string }) {
   const { user } = useAuth()
+  const { t, i18n } = useTranslation()
   const [comments, setComments] = useState<LessonComment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const locale = i18n.language === 'en' ? 'en' : 'ru'
 
   const load = useCallback(() => {
     lessonsApi
@@ -46,7 +49,7 @@ export function LessonComments({ lessonId }: { lessonId: string }) {
       const trimmed = text.trim()
       if (!trimmed || !user || submitting) return
       if (trimmed.length > COMMENT_MAX) {
-        setError(`Комментарий не более ${COMMENT_MAX} символов`)
+        setError(t('validation.comment_max', { max: COMMENT_MAX }))
         return
       }
       setError('')
@@ -93,44 +96,44 @@ export function LessonComments({ lessonId }: { lessonId: string }) {
   if (loading) {
     return (
       <section className="lesson-comments">
-        <h2>Комментарии</h2>
-        <p className="lesson-comments-loading">Загрузка...</p>
+        <h2>{t('comments.title')}</h2>
+        <p className="lesson-comments-loading">{t('common.loading')}</p>
       </section>
     )
   }
 
   return (
     <section className="lesson-comments">
-      <h2>Комментарии</h2>
+      <h2>{t('comments.title')}</h2>
       {error && <p className="lesson-comments-error">{error}</p>}
-      <ul className="lesson-comments-list" aria-label="Комментарии к уроку">
+      <ul className="lesson-comments-list" aria-label={t('comments.ariaList')}>
         {comments.length === 0 ? (
-          <li className="lesson-comments-empty">Пока нет комментариев. Будь первым!</li>
+          <li className="lesson-comments-empty">{t('comments.empty')}</li>
         ) : (
           comments.map((c) => (
             <li key={c.id} className="lesson-comments-item">
               <div className="lesson-comments-meta">
                 <span className="lesson-comments-author">{c.user_name}</span>
-                <span className="lesson-comments-date">{formatDate(c.created_at)}</span>
+                <span className="lesson-comments-date">{formatDate(c.created_at, locale)}</span>
                 {user?.id === c.user_id && (
                   <button
                     type="button"
                     className="lesson-comments-delete button-danger-outline"
                     onClick={() => handleDelete(c.id)}
                     disabled={deletingId === c.id}
-                    title="Удалить комментарий"
+                    title={t('comments.deleteComment')}
                   >
-                    {deletingId === c.id ? '…' : 'Удалить'}
+                    {deletingId === c.id ? '…' : t('common.delete')}
                   </button>
                 )}
               </div>
               <p className="lesson-comments-text">{c.text}</p>
-              <div className="comment-reactions" aria-label="Реакции к комментарию">
+              <div className="comment-reactions" aria-label={t('comments.ariaReactions')}>
                 <button
                   type="button"
                   className={`comment-reaction-btn ${c.user_reaction === 'like' ? 'active' : ''}`}
                   onClick={user ? () => setCommentReaction(c.id, 'like') : undefined}
-                  title="Нравится"
+                  title={t('comments.like')}
                   aria-pressed={c.user_reaction === 'like'}
                   disabled={!user}
                 >
@@ -140,7 +143,7 @@ export function LessonComments({ lessonId }: { lessonId: string }) {
                   type="button"
                   className={`comment-reaction-btn ${c.user_reaction === 'dislike' ? 'active' : ''}`}
                   onClick={user ? () => setCommentReaction(c.id, 'dislike') : undefined}
-                  title="Не нравится"
+                  title={t('comments.dislike')}
                   aria-pressed={c.user_reaction === 'dislike'}
                   disabled={!user}
                 >
@@ -156,7 +159,7 @@ export function LessonComments({ lessonId }: { lessonId: string }) {
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Напишите комментарий..."
+            placeholder={t('comments.placeholder')}
             rows={2}
             maxLength={COMMENT_MAX}
             className="lesson-comments-input"
@@ -167,12 +170,12 @@ export function LessonComments({ lessonId }: { lessonId: string }) {
               {text.length}/{COMMENT_MAX}
             </span>
             <button type="submit" className="button-primary" disabled={!text.trim() || submitting}>
-              Отправить
+              {t('common.send')}
             </button>
           </div>
         </form>
       ) : (
-        <p className="lesson-comments-login">Войдите, чтобы оставить комментарий.</p>
+        <p className="lesson-comments-login">{t('comments.loginToComment')}</p>
       )}
     </section>
   )

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { lessons as lessonsApi, modules } from '../../shared/api'
 import { useAuth } from '../auth/AuthContext'
 import type { Module } from '../../shared/types'
@@ -26,6 +27,7 @@ export function ModulePage() {
   const [createError, setCreateError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [confirm, setConfirm] = useState<ConfirmKind | null>(null)
+  const { t } = useTranslation()
 
   const load = useCallback(() => {
     if (!id) return
@@ -125,22 +127,22 @@ export function ModulePage() {
   }, [confirm])
 
   const confirmTitle = confirm?.kind === 'module'
-    ? 'Удалить курс?'
+    ? t('module.confirmDeleteModule')
     : confirm?.kind === 'lesson'
-      ? 'Удалить урок?'
+      ? t('module.confirmDeleteLesson')
       : ''
   const confirmMessage =
     confirm?.kind === 'module' && module_
       ? (module_.lessons ?? []).length > 0
-        ? `Удалить курс «${module_.title}» и все ${(module_.lessons ?? []).length} уроков?`
-        : `Удалить курс «${module_.title}»?`
+        ? t('module.confirmDeleteModuleWithLessons', { title: module_.title, count: (module_.lessons ?? []).length })
+        : t('module.confirmDeleteModuleOnly', { title: module_.title })
       : confirm?.kind === 'lesson'
-        ? `Удалить урок «${confirm.lessonTitle}»?`
+        ? t('module.confirmDeleteLessonMessage', { title: confirm.lessonTitle })
         : ''
 
-  if (loading) return <p>Загрузка...</p>
+  if (loading) return <p>{t('common.loading')}</p>
   if (error) return <p className="error">{error}</p>
-  if (!module_) return <p className="error">Модуль не найден</p>
+  if (!module_) return <p className="error">{t('module.notFound')}</p>
 
   const orderedLessons = (module_.lessons ?? []).sort((a, b) => a.sort_order - b.sort_order)
   const tocItems: TocItem[] = orderedLessons.map((lesson) => ({
@@ -154,7 +156,7 @@ export function ModulePage() {
       <ConfirmModal
         open={!!confirm}
         title={confirmTitle}
-        confirmLabel="Удалить"
+        confirmLabel={t('common.delete')}
         variant="danger"
         onConfirm={confirm?.kind === 'module' ? doDeleteModule : doDeleteLesson}
         onCancel={() => setConfirm(null)}
@@ -162,7 +164,7 @@ export function ModulePage() {
         {confirmMessage}
       </ConfirmModal>
       <div className="module-page">
-        <p><Link to="/">← Каталог</Link></p>
+        <p><Link to="/">{t('module.backToCatalog')}</Link></p>
         <h1>{module_.title}</h1>
         {module_.description && <p>{module_.description}</p>}
         {user?.role === 'teacher' && (
@@ -170,68 +172,68 @@ export function ModulePage() {
             {!showCreateForm ? (
               <div className="module-teacher-buttons">
                 <button type="button" className="button-primary" onClick={() => setShowCreateForm(true)}>
-                  Добавить урок
+                  {t('module.addLesson')}
                 </button>
                 <button
                   type="button"
                   className="button-danger-outline"
                   onClick={handleDelete}
                   disabled={deleting}
-                  title="Удалить курс"
+                  title={t('module.deleteCourse')}
                 >
-                  {deleting ? '…' : 'Удалить курс'}
+                  {deleting ? '…' : t('module.deleteCourse')}
                 </button>
               </div>
             ) : (
               <form className="module-create-lesson-form" onSubmit={handleCreate}>
-                <h3>Новый урок</h3>
+                <h3>{t('module.newLesson')}</h3>
                 {createError && <p className="error">{createError}</p>}
                 <div className="form-group">
-                  <label htmlFor="lesson-title">Название</label>
+                  <label htmlFor="lesson-title">{t('module.lessonTitle')}</label>
                   <input
                     id="lesson-title"
                     value={createTitle}
                     onChange={(e) => setCreateTitle(e.target.value)}
-                    placeholder="Название урока"
+                    placeholder={t('module.lessonTitlePlaceholder')}
                     required
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="lesson-desc">Описание</label>
+                  <label htmlFor="lesson-desc">{t('catalog.description')}</label>
                   <textarea
                     id="lesson-desc"
                     value={createDesc}
                     onChange={(e) => setCreateDesc(e.target.value)}
-                    placeholder="Краткое описание (необязательно)"
+                    placeholder={t('catalog.descriptionPlaceholder')}
                     rows={2}
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="lesson-type">Тип</label>
+                  <label htmlFor="lesson-type">{t('module.lessonType')}</label>
                   <select
                     id="lesson-type"
                     value={createType}
                     onChange={(e) => setCreateType(e.target.value as 'theory' | 'practice' | 'project')}
                   >
-                    <option value="theory">Теория</option>
-                    <option value="practice">Практика</option>
-                    <option value="project">Проект</option>
+                    <option value="theory">{t('module.typeTheory')}</option>
+                    <option value="practice">{t('module.typePractice')}</option>
+                    <option value="project">{t('module.typeProject')}</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Шаги урока</label>
+                  <label>{t('module.stepsLabel')}</label>
                   {createSteps.map((step, idx) => (
                     <div key={idx} className="module-create-step">
                       <input
                         value={step.title}
                         onChange={(e) => updateStep(idx, 'title', e.target.value)}
-                        placeholder={`Заголовок шага ${idx + 1}`}
+                        placeholder={t('module.stepTitlePlaceholder', { n: idx + 1 })}
                       />
                       <MarkdownStepEditor
                         value={step.content}
                         onChange={(v) => updateStep(idx, 'content', v)}
                         rows={3}
-                        placeholder="Контент (Markdown, необязательно)"
+                        placeholder={t('module.stepContentPlaceholder')}
                         label=""
                       />
                       <button
@@ -240,17 +242,17 @@ export function ModulePage() {
                         onClick={() => removeStep(idx)}
                         disabled={createSteps.length <= 1}
                       >
-                        Удалить
+                        {t('common.delete')}
                       </button>
                     </div>
                   ))}
                   <button type="button" className="button-secondary" onClick={addStep}>
-                    Добавить шаг
+                    {t('module.addStep')}
                   </button>
                 </div>
                 <div className="form-actions">
                   <button type="submit" className="button-primary" disabled={submitting}>
-                    Создать
+                    {t('common.create')}
                   </button>
                   <button
                     type="button"
@@ -263,7 +265,7 @@ export function ModulePage() {
                       setCreateError('')
                     }}
                   >
-                    Отмена
+                    {t('common.cancel')}
                   </button>
                 </div>
               </form>
@@ -284,16 +286,16 @@ export function ModulePage() {
                       handleDeleteLesson(lesson.id, lesson.title)
                     }}
                     disabled={deletingLessonId === lesson.id}
-                    title="Удалить урок"
+                    title={t('module.confirmDeleteLesson')}
                   >
-                    {deletingLessonId === lesson.id ? '…' : 'Удалить'}
+                    {deletingLessonId === lesson.id ? '…' : t('common.delete')}
                   </button>
                 )}
               </li>
             ))}
           </ul>
         ) : (
-          <p>В этом модуле пока нет уроков.</p>
+          <p>{t('module.noLessons')}</p>
         )}
       </div>
     </PageWithToc>
