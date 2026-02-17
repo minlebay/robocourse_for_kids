@@ -46,6 +46,7 @@
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
 }
 
 .courseNav a {
@@ -205,7 +206,7 @@
   font-weight: 600;
 }
 
-.progressActions button.active {
+.progressActions button:global(.active) {
   background: var(--success);
   color: var(--accent-on);
   border-color: var(--success);
@@ -509,6 +510,8 @@
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--glass-border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
 .materialMermaid {

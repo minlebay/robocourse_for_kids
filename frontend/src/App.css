@@ -12,13 +12,15 @@
   --header-bg: #0f172a;
   --header-text: #f1f5f9;
   --accent-on: #ffffff;
-  --radius: 12px;
-  --radius-sm: 8px;
+  --radius: 16px;
+  --radius-sm: 10px;
   --shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
   --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.4);
   /* Матовое стекло (прозрачнее + сильнее размытие) и анимированный градиент */
   --bg-gradient: linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #1e1b4b, #0f172a);
   --glass-bg: rgba(30, 41, 59, 0.48);
+  /* Карточки — второй слой матового стекла (в тёмных темах темнее, в светлых светлее) */
+  --glass-card-bg: rgba(30, 26, 46, 0.72);
   --glass-border: rgba(148, 163, 184, 0.25);
   --glass-blur: 24px;
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
@@ -691,9 +693,10 @@ body {
   padding: 0.75rem 1rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--glass-border);
-  background: rgba(30, 41, 59, 0.6);
+  background: var(--glass-card-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--glass-shadow);
   max-width: 100%;
   min-width: 0;
 }
@@ -760,7 +763,7 @@ body {
   font: inherit;
   font-size: 1rem;
   color: var(--text);
-  background: var(--glass-bg);
+  background: var(--glass-card-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--glass-border);
@@ -858,17 +861,23 @@ body {
   padding: 1rem 1.25rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--glass-border);
-  background: rgba(30, 41, 59, 0.6);
+  background: var(--glass-card-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--glass-shadow);
   box-sizing: border-box;
 }
 
 .lesson-comments-empty {
-  padding: 1rem;
+  padding: 1rem 1.25rem;
   color: var(--text-muted);
   font-style: italic;
   margin: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-card-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
 }
 
 .lesson-comments-meta {
@@ -956,7 +965,9 @@ body {
   font: inherit;
   font-size: 1rem;
   color: var(--text);
-  background: var(--glass-bg);
+  background: var(--glass-card-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
   box-sizing: border-box;

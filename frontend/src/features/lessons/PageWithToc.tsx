@@ -39,6 +39,7 @@ export function PageWithToc({ title, items, children, containerClassName }: Page
   const [width, setWidth] = useState(getInitialTocWidth)
   const [isDragging, setIsDragging] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
+  const dragStartRef = useRef({ clientX: 0, width: 0 })
 
   const saveWidth = useCallback((w: number) => {
     const value = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, w))
@@ -50,15 +51,20 @@ export function PageWithToc({ title, items, children, containerClassName }: Page
     }
   }, [])
 
-  const startDrag = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    setIsDragging(true)
-  }, [])
+  const startDrag = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      dragStartRef.current = { clientX: e.clientX, width }
+      setIsDragging(true)
+    },
+    [width]
+  )
 
   useEffect(() => {
     if (!isDragging) return
     const onMove = (e: MouseEvent) => {
-      saveWidth(e.clientX)
+      const { clientX: startX, width: startWidth } = dragStartRef.current
+      saveWidth(startWidth + (e.clientX - startX))
     }
     const onUp = () => setIsDragging(false)
     document.addEventListener('mousemove', onMove)

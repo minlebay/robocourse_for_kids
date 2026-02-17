@@ -24,19 +24,22 @@ export interface Theme {
   cssVars: Record<string, string>
 }
 
-/** Циклические градиенты и «стеклянные» панели (прозрачнее + сильнее размытие) */
+/** Циклические градиенты и «стеклянные» панели (прозрачнее + сильнее размытие). Карточки — второй слой матового стекла (темнее). */
 const frostedDark = {
   '--bg-gradient':
     'linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #1e1b4b, #0f172a)',
   '--glass-bg': 'rgba(30, 41, 59, 0.48)',
+  '--glass-card-bg': 'rgba(30, 26, 46, 0.72)',
   '--glass-border': 'rgba(148, 163, 184, 0.25)',
   '--glass-blur': '24px',
   '--glass-shadow': '0 8px 32px rgba(0, 0, 0, 0.25)',
 }
+/** Карточки — второй слой матового стекла (светлее). */
 const frostedLight = {
   '--bg-gradient':
     'linear-gradient(-45deg, #fce7f3, #e9d5ff, #dbeafe, #e9d5ff, #fce7f3)',
   '--glass-bg': 'rgba(255, 255, 255, 0.52)',
+  '--glass-card-bg': 'rgba(255, 255, 255, 0.78)',
   '--glass-border': 'rgba(226, 232, 240, 0.65)',
   '--glass-blur': '24px',
   '--glass-shadow': '0 8px 32px rgba(0, 0, 0, 0.08)',
@@ -94,6 +97,7 @@ export const themes: Record<ThemeId, Theme> = {
       '--bg-gradient':
         'linear-gradient(-45deg, #0a0118, #1a0a2e, #2e1065, #000000, #1a0a2e, #0a0118)',
       '--glass-bg': 'rgba(20, 8, 36, 0.5)',
+      '--glass-card-bg': 'rgba(15, 5, 28, 0.78)',
       '--glass-border': 'rgba(55, 25, 95, 0.4)',
       '--glass-blur': '24px',
       '--glass-shadow': '0 8px 32px rgba(0, 0, 0, 0.4)',
@@ -143,6 +147,7 @@ export const themes: Record<ThemeId, Theme> = {
       '--bg-gradient':
         'linear-gradient(-45deg, #0a0a0a, #0f172a, #1e3a8a, #0f172a, #0a0a0a)',
       '--glass-bg': 'rgba(26, 26, 26, 0.5)',
+      '--glass-card-bg': 'rgba(18, 18, 18, 0.75)',
       '--glass-border': 'rgba(64, 64, 64, 0.5)',
       '--glass-blur': '24px',
       '--glass-shadow': '0 8px 32px rgba(0, 0, 0, 0.35)',
@@ -234,6 +239,7 @@ export const themes: Record<ThemeId, Theme> = {
       '--bg-gradient':
         'linear-gradient(-45deg, #0f1419, #14532d, #166534, #14532d, #0f1419)',
       '--glass-bg': 'rgba(26, 36, 33, 0.5)',
+      '--glass-card-bg': 'rgba(15, 28, 24, 0.72)',
       '--glass-border': 'rgba(22, 101, 52, 0.35)',
       '--glass-blur': '24px',
       '--glass-shadow': '0 8px 32px rgba(0, 0, 0, 0.3)',

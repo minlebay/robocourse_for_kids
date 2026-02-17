@@ -57,6 +57,7 @@
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
   border-right: 1px solid var(--glass-border);
+  border-radius: var(--radius);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -118,6 +119,8 @@
 .resizeHandle {
   width: 6px;
   flex-shrink: 0;
+  /* Левый отступ больше правого: у .main padding-left 1.5rem, чтобы ползунок был по центру между сайдбаром и контентом */
+  margin: 0 8px 0 32px;
   cursor: col-resize;
   background: var(--border);
   transition: background 0.15s ease;
