@@ -1,12 +1,7 @@
-import { useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
-import { LedBlinkSimulator } from './LedBlinkSimulator'
-import { MermaidDiagram } from './MermaidDiagram'
 import { PageWithToc, type TocItem } from './PageWithToc'
-import type { LessonMaterial } from '../../shared/types'
-import { getSafeUrl } from '../../shared/url'
 import { ConfirmModal } from '../../components'
 import { CourseNav } from './CourseNav'
 import { LessonView } from './LessonView'
@@ -62,53 +57,6 @@ export function LessonPage() {
     module_,
     setSaveError,
   })
-
-  const renderMaterial = useCallback(
-    (m: LessonMaterial) => {
-      if (m.kind === 'simulator' && m.url_or_path === 'led-blink') {
-        return (
-          <li key={m.id} className={styles.materialSimulator}>
-            <div className={styles.simulatorWrapper} style={{ width: '100%' }}>
-              <LedBlinkSimulator />
-            </div>
-          </li>
-        )
-      }
-      if (m.kind === 'mermaid') {
-        return (
-          <li key={m.id} className={styles.materialMermaid}>
-            <MermaidDiagram code={m.url_or_path} title={m.title} />
-          </li>
-        )
-      }
-      const safeUrl = m.kind === 'link' ? getSafeUrl(m.url_or_path) : null
-      const isImage = safeUrl && /\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i.test(m.url_or_path)
-      if (m.kind === 'link' && isImage && safeUrl) {
-        return (
-          <li key={m.id}>
-            <figure className={styles.materialImage}>
-              <a href={safeUrl} target="_blank" rel="noreferrer">
-                <img src={safeUrl} alt={m.title || t('lesson.illustration')} loading="lazy" />
-              </a>
-              {m.title && <figcaption>{m.title}</figcaption>}
-            </figure>
-          </li>
-        )
-      }
-      return (
-        <li key={m.id}>
-          {m.kind === 'link' && safeUrl ? (
-            <a href={safeUrl} target="_blank" rel="noreferrer">
-              {m.title || m.url_or_path}
-            </a>
-          ) : (
-            <span>{m.title || m.url_or_path}</span>
-          )}
-        </li>
-      )
-    },
-    [t]
-  )
 
   if (loading) return <p>{t('common.loading')}</p>
   if (error) return <p className="error">{error}</p>
@@ -174,7 +122,6 @@ export function LessonPage() {
               onReactionLike={() => setLessonReaction('like')}
               onReactionDislike={() => setLessonReaction('dislike')}
               onClearReaction={clearLessonReaction}
-              renderMaterial={renderMaterial}
             />
           </>
         )}

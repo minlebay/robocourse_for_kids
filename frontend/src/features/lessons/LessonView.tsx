@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
-import type { Lesson, LessonMaterial, LessonStatus } from '../../shared/types'
+import type { Lesson, LessonStatus } from '../../shared/types'
 import { markdownComponents } from './YouTubeEmbed'
 import { LessonProgressBar } from './LessonProgressBar'
 import { LessonChat } from './LessonChat'
@@ -20,8 +20,6 @@ type LessonViewProps = {
   onReactionLike: () => void
   onReactionDislike: () => void
   onClearReaction: () => void
-  /** Рендер одного материала (возвращает <li> с контентом) */
-  renderMaterial: (m: LessonMaterial) => React.ReactNode
 }
 
 function LessonViewInner({
@@ -34,16 +32,8 @@ function LessonViewInner({
   onReactionLike,
   onReactionDislike,
   onClearReaction,
-  renderMaterial,
 }: LessonViewProps) {
   const { t } = useTranslation()
-  const materials = lesson.materials ?? []
-  const sortedMaterials = [...materials].sort((a, b) => {
-    const order = (k: string) => (k === 'simulator' ? 0 : k === 'mermaid' ? 1 : 2)
-    return order(a.kind) - order(b.kind)
-  })
-  const simulatorMaterials = sortedMaterials.filter((m) => m.kind === 'simulator' && m.url_or_path === 'led-blink')
-  const otherMaterials = sortedMaterials.filter((m) => !(m.kind === 'simulator' && m.url_or_path === 'led-blink'))
 
   return (
     <>
@@ -103,24 +93,6 @@ function LessonViewInner({
                 </li>
               ))}
           </ul>
-        </section>
-      )}
-
-      {materials.length > 0 && (
-        <section className={styles.sectionMaterials} aria-labelledby="lesson-materials-heading">
-          <h2 id="lesson-materials-heading">{t('lesson.materials')}</h2>
-          <div className={styles.materialsInner}>
-            {simulatorMaterials.length > 0 && (
-              <ul className={styles.materialsList} aria-label={t('lesson.trainer')}>
-                {simulatorMaterials.map(renderMaterial)}
-              </ul>
-            )}
-            {otherMaterials.length > 0 && (
-              <ul className={`${styles.materialsList} ${styles.materialsListRest}`}>
-                {otherMaterials.map(renderMaterial)}
-              </ul>
-            )}
-          </div>
         </section>
       )}
 

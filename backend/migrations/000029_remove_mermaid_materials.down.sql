@@ -1,0 +1,2 @@
+-- Down: cannot restore deleted mermaid rows
+-- No-op; use 000030 down to re-add enum value if rolling back.

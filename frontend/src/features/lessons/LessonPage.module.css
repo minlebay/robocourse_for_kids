@@ -1,4 +1,4 @@
-/* Контейнер страницы урока */
+/* Контейнер страницы урока. Боковой padding совпадает с сайдбаром (--toc-content-padding); сверху меньше, чтобы не было большого отступа над навигацией */
 .root {
   width: 100%;
   max-width: 100%;
@@ -6,14 +6,18 @@
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
-  padding: 2rem;
+  padding: 0.05rem var(--toc-content-padding, 2.5rem) 2rem;
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   border: 1px solid var(--glass-border);
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .content {
+  flex: 0 1 auto;
+  min-height: 0;
   display: block;
   width: 100%;
   max-width: 100%;
@@ -25,41 +29,51 @@
   gap: 1rem;
   flex-wrap: wrap;
   align-items: center;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
+  justify-content: center;
+  margin-top: 0;
+  margin-bottom: var(--toc-content-padding, 2.5rem);
+  min-height: 1.25rem;
+  padding: 1.25rem 0;
   border-bottom: 1px solid var(--border);
+  box-sizing: content-box;
 }
 
 .courseNavLast {
-  margin-top: 3rem;
-  margin-bottom: 0;
-  padding-top: 1rem;
-  padding-bottom: 0;
+  margin-top: 1.5rem;
+  margin-bottom: auto;
+  min-height: 2.75rem;
+  padding: 1rem 0;
   border-bottom: none;
   border-top: 1px solid var(--border);
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   clear: both;
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
+  box-sizing: border-box;
 }
 
-.courseNav a {
-  color: var(--accent);
+.courseNav a,
+.courseNavLast a {
+  color: var(--header-text);
   font-weight: 600;
   text-decoration: none;
 }
 
-.courseNav a:hover {
+.courseNav a:hover,
+.courseNavLast a:hover {
+  opacity: 1;
   text-decoration: underline;
 }
 
-.courseNav .disabled {
+.courseNav .disabled,
+.courseNavLast .disabled {
   color: var(--text-muted);
   cursor: default;
   font-weight: 500;
@@ -212,16 +226,14 @@
   border-color: var(--success);
 }
 
-/* Секции: шаги, чек-лист, материалы */
+/* Секции: шаги, чек-лист */
 .sectionSteps,
-.sectionChecklist,
-.sectionMaterials {
+.sectionChecklist {
   margin-top: 2rem;
 }
 
 .sectionSteps h2,
-.sectionChecklist h2,
-.sectionMaterials h2 {
+.sectionChecklist h2 {
   font-size: 1.2rem;
   margin-bottom: 1rem;
   color: var(--text);
@@ -448,100 +460,6 @@
 .checklist label {
   cursor: pointer;
   font-weight: 600;
-}
-
-/* Материалы */
-.materialsInner {
-  display: block;
-}
-
-.materialsList,
-.materialsList ul {
-  list-style: none;
-  padding-left: 0;
-  margin: 0;
-  display: block;
-}
-
-.materialsListRest {
-  margin-top: 2.5rem;
-}
-
-.materialsList > li,
-.materialsList ul > li {
-  display: block;
-  margin-bottom: 2rem;
-  position: relative;
-  z-index: 0;
-}
-
-.materialsList ul > li + li {
-  margin-top: 0.5rem;
-}
-
-.materialsList ul > li:last-child {
-  margin-bottom: 0;
-}
-
-.materialsList a {
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.materialImage {
-  margin-top: 0.5rem;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  border: 1px solid var(--border);
-  max-width: 100%;
-}
-
-.materialImage img {
-  display: block;
-  max-width: 100%;
-  height: auto;
-}
-
-.materialImage figcaption {
-  padding: 0.5rem 0.75rem;
-  font-size: 0.9rem;
-  color: var(--text-muted);
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--glass-border);
-  border-top: none;
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-}
-
-.materialMermaid {
-  list-style: none;
-  margin: 1.5rem 0 0;
-  padding: 0;
-  display: block;
-  clear: both;
-  position: relative;
-  z-index: 0;
-}
-
-.materialSimulator {
-  margin: 0 0 2.5rem;
-  padding: 0;
-  list-style: none;
-  display: block;
-  clear: both;
-  width: 100%;
-  max-width: 100%;
-  min-height: 1px;
-}
-
-.simulatorWrapper {
-  display: block;
-  width: 100%;
-  min-width: 100%;
-  margin: 0;
-  padding: 0;
-  min-height: 520px;
 }
 
 /* Реакции (лайк/дизлайк) */

@@ -58,7 +58,7 @@ export interface LessonStep {
 export interface LessonMaterial {
   id: string
   lesson_id: string
-  kind: 'link' | 'file' | 'simulator' | 'mermaid'
+  kind: 'link' | 'file' | 'simulator'
   url_or_path: string
   title?: string
 }

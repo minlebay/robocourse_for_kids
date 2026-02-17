@@ -103,7 +103,10 @@ body {
   flex-shrink: 0;
   background: var(--header-bg);
   color: var(--header-text);
-  padding: 0.875rem 1.5rem;
+  padding: 0 1.5rem;
+  min-height: 4.25rem;
+  display: flex;
+  align-items: center;
   box-sizing: border-box;
   border-bottom: 1px solid var(--glass-border);
 }
@@ -113,6 +116,7 @@ body {
   gap: 1.25rem;
   align-items: center;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .header-actions {
@@ -308,6 +312,13 @@ body {
   padding: 2rem 1.5rem;
   box-sizing: border-box;
   overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.main > * {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .error {
