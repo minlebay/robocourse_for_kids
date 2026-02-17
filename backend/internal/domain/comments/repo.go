@@ -20,12 +20,15 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 }
 
 type Comment struct {
-	ID        uuid.UUID `json:"id"`
-	LessonID  uuid.UUID `json:"lesson_id"`
-	UserID    uuid.UUID `json:"user_id"`
-	UserName  string    `json:"user_name"`
-	Text      string    `json:"text"`
-	CreatedAt time.Time `json:"created_at"`
+	ID            uuid.UUID `json:"id"`
+	LessonID      uuid.UUID `json:"lesson_id"`
+	UserID        uuid.UUID `json:"user_id"`
+	UserName      string    `json:"user_name"`
+	Text          string    `json:"text"`
+	CreatedAt     time.Time `json:"created_at"`
+	LikesCount    int       `json:"likes_count,omitempty"`
+	DislikesCount int       `json:"dislikes_count,omitempty"`
+	UserReaction  *string   `json:"user_reaction,omitempty"` // "like" or "dislike" if authenticated
 }
 
 func (r *Repo) ListByLesson(ctx context.Context, lessonID uuid.UUID) ([]Comment, error) {

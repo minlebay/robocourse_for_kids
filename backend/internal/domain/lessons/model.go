@@ -16,17 +16,20 @@ type Module struct {
 }
 
 type Lesson struct {
-	ID          uuid.UUID         `json:"id"`
-	ModuleID    uuid.UUID         `json:"module_id"`
-	Title       string            `json:"title"`
-	Description string            `json:"description"`
-	LessonType  string            `json:"lesson_type"` // theory, practice, project
-	SortOrder   int               `json:"sort_order"`
-	Steps       []LessonStep      `json:"steps,omitempty"`
-	Materials   []LessonMaterial  `json:"materials,omitempty"`
-	Tags        []string          `json:"tags,omitempty"`
-	Checklist   []ChecklistItem   `json:"checklist,omitempty"`
-	CreatedAt   time.Time         `json:"created_at"`
+	ID           uuid.UUID        `json:"id"`
+	ModuleID     uuid.UUID        `json:"module_id"`
+	Title        string           `json:"title"`
+	Description  string           `json:"description"`
+	LessonType   string           `json:"lesson_type"` // theory, practice, project
+	SortOrder    int              `json:"sort_order"`
+	Steps        []LessonStep     `json:"steps,omitempty"`
+	Materials    []LessonMaterial `json:"materials,omitempty"`
+	Tags         []string         `json:"tags,omitempty"`
+	Checklist    []ChecklistItem  `json:"checklist,omitempty"`
+	CreatedAt    time.Time        `json:"created_at"`
+	LikesCount   int              `json:"likes_count,omitempty"`
+	DislikesCount int             `json:"dislikes_count,omitempty"`
+	UserReaction *string          `json:"user_reaction,omitempty"` // "like" or "dislike" if authenticated
 }
 
 type LessonStep struct {

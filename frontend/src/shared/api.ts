@@ -1,4 +1,4 @@
-import type { LessonStatus } from './types'
+import type { LessonStatus, ReactionType } from './types'
 
 const API_BASE = '/api/v1'
 const RETURN_URL_KEY = 'learn_kids_return_url'
@@ -158,6 +158,20 @@ export const lessons = {
     }),
   deleteComment: (lessonId: string, commentId: string) =>
     apiVoid(`/lessons/${lessonId}/comments/${commentId}`, { method: 'DELETE' }),
+  setReaction: (lessonId: string, reaction: ReactionType) =>
+    apiVoid(`/lessons/${lessonId}/reaction`, {
+      method: 'PUT',
+      body: JSON.stringify({ reaction }),
+    }),
+  deleteReaction: (lessonId: string) =>
+    apiVoid(`/lessons/${lessonId}/reaction`, { method: 'DELETE' }),
+  setCommentReaction: (lessonId: string, commentId: string, reaction: ReactionType) =>
+    apiVoid(`/lessons/${lessonId}/comments/${commentId}/reaction`, {
+      method: 'PUT',
+      body: JSON.stringify({ reaction }),
+    }),
+  deleteCommentReaction: (lessonId: string, commentId: string) =>
+    apiVoid(`/lessons/${lessonId}/comments/${commentId}/reaction`, { method: 'DELETE' }),
   update: (
     id: string,
     body: {

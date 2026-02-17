@@ -27,6 +27,9 @@ export interface Module {
   created_at: string
 }
 
+/** Реакция пользователя: лайк или дизлайк */
+export type ReactionType = 'like' | 'dislike'
+
 export interface Lesson {
   id: string
   module_id: string
@@ -39,6 +42,9 @@ export interface Lesson {
   tags?: string[]
   checklist?: ChecklistItem[]
   created_at: string
+  likes_count?: number
+  dislikes_count?: number
+  user_reaction?: ReactionType
 }
 
 export interface LessonStep {
@@ -94,4 +100,7 @@ export interface LessonComment {
   user_name: string
   text: string
   created_at: string
+  likes_count?: number
+  dislikes_count?: number
+  user_reaction?: ReactionType
 }

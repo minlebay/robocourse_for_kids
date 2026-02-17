@@ -1,6 +1,6 @@
 # Сводка контракта API
 
-**Обновлено:** 2026-02-16
+**Обновлено:** 2026-02-17
 
 Базовый префикс: `/api/v1`. Полная спецификация: [backend/api/openapi.yaml](../../backend/api/openapi.yaml).
 
@@ -18,12 +18,16 @@
 | DELETE | /api/v1/modules/:id | Удалить курс | JWT, teacher | — |
 | GET | /api/v1/modules/:id | Модуль с уроками | — | — |
 | POST | /api/v1/modules/:id/lessons | Добавить урок в курс | JWT, teacher | — |
-| GET | /api/v1/lessons/:id | Урок (шаги, материалы, чек-лист) | — | — |
+| GET | /api/v1/lessons/:id | Урок (шаги, материалы, чек-лист, счётчики лайков/дизлайков) | — | — |
 | PUT | /api/v1/lessons/:id | Обновить урок | JWT, teacher | — |
 | DELETE | /api/v1/lessons/:id | Удалить урок | JWT, teacher | — |
-| GET | /api/v1/lessons/:id/comments | Список комментариев к уроку | — | — |
+| PUT | /api/v1/lessons/:id/reaction | Поставить лайк/дизлайк уроку. Тело: `{ "reaction": "like" \| "dislike" }` | JWT | — |
+| DELETE | /api/v1/lessons/:id/reaction | Убрать свою реакцию к уроку | JWT | — |
+| GET | /api/v1/lessons/:id/comments | Список комментариев (с полями likes_count, dislikes_count, user_reaction) | — | — |
 | POST | /api/v1/lessons/:id/comments | Добавить комментарий | JWT | — |
 | DELETE | /api/v1/lessons/:id/comments/:commentId | Удалить свой комментарий | JWT | — |
+| PUT | /api/v1/lessons/:id/comments/:commentId/reaction | Поставить лайк/дизлайк комментарию. Тело: `{ "reaction": "like" \| "dislike" }` | JWT | — |
+| DELETE | /api/v1/lessons/:id/comments/:commentId/reaction | Убрать свою реакцию к комментарию | JWT | — |
 | GET | /api/v1/progress | Прогресс текущего пользователя | JWT | — |
 | PUT | /api/v1/lessons/:id/progress | Статус по уроку | JWT | — |
 | PUT | /api/v1/lessons/:id/checklist/:itemId | Пункт чек-листа | JWT | — |

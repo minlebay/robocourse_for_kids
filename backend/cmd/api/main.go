@@ -20,6 +20,7 @@ import (
 	"learn_kids/backend/internal/domain/comments"
 	"learn_kids/backend/internal/domain/lessons"
 	"learn_kids/backend/internal/domain/progress"
+	"learn_kids/backend/internal/domain/reactions"
 	"learn_kids/backend/internal/domain/users"
 	"learn_kids/backend/internal/server"
 )
@@ -99,13 +100,15 @@ func main() {
 	defer cancelShutdown()
 
 	usersRepo := users.NewRepo(pool)
+	reactionsRepo := reactions.NewRepo(pool)
 	srv := server.New(server.Deps{
 		Pool:             pool,
-		Lessons:          lessons.NewHandler(lessonsRepo),
+		Lessons:          lessons.NewHandler(lessonsRepo, reactionsRepo),
 		Users:            users.NewHandler(usersRepo, cfg.JWTSecret, cfg.TeacherInviteCode),
 		Progress:         progress.NewHandler(progress.NewRepo(pool), &userChecker{repo: usersRepo}),
 		Chat:             chat.NewHandler(cfg.GeminiAPIKey, chat.NewRepo(pool), lessonContextFn),
-		Comments:         comments.NewHandler(comments.NewRepo(pool)),
+		Comments:         comments.NewHandler(comments.NewRepo(pool), reactionsRepo),
+		Reactions:        reactions.NewHandler(reactionsRepo),
 		JWTSecret:        cfg.JWTSecret,
 		FrontendOrigin:   cfg.FrontendOrigin,
 		ShutdownContext:   shutdownCtx,

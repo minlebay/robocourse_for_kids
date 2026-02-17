@@ -16,6 +16,7 @@ import (
 	"learn_kids/backend/internal/domain/comments"
 	"learn_kids/backend/internal/domain/lessons"
 	"learn_kids/backend/internal/domain/progress"
+	"learn_kids/backend/internal/domain/reactions"
 	"learn_kids/backend/internal/domain/users"
 
 	_ "learn_kids/backend/internal/middleware" // ensure middleware compiles
@@ -62,14 +63,16 @@ func TestMain(m *testing.M) {
 	shutdownCtx, cancelShutdown := context.WithCancel(context.Background())
 	defer cancelShutdown()
 
+	reactionsRepo := reactions.NewRepo(pool)
 	testPool = &testDeps{
 		srv: New(Deps{
 			Pool:            pool,
-			Lessons:         lessons.NewHandler(lessons.NewRepo(pool)),
+			Lessons:         lessons.NewHandler(lessons.NewRepo(pool), reactionsRepo),
 			Users:           users.NewHandler(users.NewRepo(pool), jwtSecret, inviteCode),
 			Progress:        progress.NewHandler(progress.NewRepo(pool), nil),
 			Chat:            chat.NewHandler(geminiKey, chat.NewRepo(pool), lessonCtxFn),
-			Comments:        comments.NewHandler(comments.NewRepo(pool)),
+			Comments:        comments.NewHandler(comments.NewRepo(pool), reactionsRepo),
+			Reactions:       reactions.NewHandler(reactionsRepo),
 			JWTSecret:       jwtSecret,
 			FrontendOrigin:  "http://localhost:5173",
 			ShutdownContext: shutdownCtx,

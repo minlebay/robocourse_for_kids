@@ -12,6 +12,7 @@ import (
 	"learn_kids/backend/internal/domain/comments"
 	"learn_kids/backend/internal/domain/lessons"
 	"learn_kids/backend/internal/domain/progress"
+	"learn_kids/backend/internal/domain/reactions"
 	"learn_kids/backend/internal/domain/users"
 	"learn_kids/backend/internal/httplog"
 	"learn_kids/backend/internal/middleware"
@@ -26,8 +27,9 @@ type Server struct {
 	lessons  *lessons.Handler
 	users    *users.Handler
 	progress *progress.Handler
-	chat     *chat.Handler
-	comments *comments.Handler
+	chat      *chat.Handler
+	comments  *comments.Handler
+	reactions *reactions.Handler
 
 	// shutdown context: when cancelled, rate limiter cleanup goroutines exit
 	shutdownContext context.Context
@@ -44,6 +46,7 @@ type Deps struct {
 	Progress         *progress.Handler
 	Chat             *chat.Handler
 	Comments         *comments.Handler
+	Reactions        *reactions.Handler
 	JWTSecret        string
 	FrontendOrigin   string
 	ShutdownContext  context.Context // optional: cancels on server shutdown so rate limiters stop cleanup
@@ -80,6 +83,7 @@ func New(d Deps) *Server {
 		progress:         d.Progress,
 		chat:             d.Chat,
 		comments:         d.Comments,
+		reactions:        d.Reactions,
 		shutdownContext:  d.ShutdownContext,
 		requireAuthMw:    middleware.RequireAuth(),
 		requireTeacherMw: middleware.RequireTeacher(),
@@ -120,6 +124,12 @@ func (s *Server) routes() {
 	api.GET("/lessons/:id/comments", s.comments.List)
 	api.POST("/lessons/:id/comments", s.requireAuth, s.comments.Create)
 	api.DELETE("/lessons/:id/comments/:commentId", s.requireAuth, s.comments.Delete)
+
+	// Reactions (likes/dislikes) for lessons and comments — JWT required to set/delete
+	api.PUT("/lessons/:id/reaction", s.requireAuth, s.reactions.SetLessonReaction)
+	api.DELETE("/lessons/:id/reaction", s.requireAuth, s.reactions.DeleteLessonReaction)
+	api.PUT("/lessons/:id/comments/:commentId/reaction", s.requireAuth, s.reactions.SetCommentReaction)
+	api.DELETE("/lessons/:id/comments/:commentId/reaction", s.requireAuth, s.reactions.DeleteCommentReaction)
 
 	// Auth required from here for some routes
 	api.GET("/auth/me", s.requireAuth, s.users.Me)

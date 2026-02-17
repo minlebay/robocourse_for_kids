@@ -11,6 +11,15 @@ import (
 	"learn_kids/backend/internal/sanitize"
 )
 
+// CommentReactionProvider optionally provides reaction counts for comments (implemented by reactions domain or adapter).
+type CommentReactionProvider interface {
+	GetForComments(ctx context.Context, commentIDs []uuid.UUID, userID uuid.UUID) (
+		counts map[uuid.UUID]struct{ Likes, Dislikes int },
+		userReactions map[uuid.UUID]string,
+		err error,
+	)
+}
+
 // Repository defines the data access interface for comments.
 type Repository interface {
 	ListByLesson(ctx context.Context, lessonID uuid.UUID) ([]Comment, error)
@@ -19,11 +28,12 @@ type Repository interface {
 }
 
 type Handler struct {
-	repo Repository
+	repo             Repository
+	reactionProvider CommentReactionProvider // optional
 }
 
-func NewHandler(repo Repository) *Handler {
-	return &Handler{repo: repo}
+func NewHandler(repo Repository, reactionProvider CommentReactionProvider) *Handler {
+	return &Handler{repo: repo, reactionProvider: reactionProvider}
 }
 
 func (h *Handler) List(c *gin.Context) {
@@ -40,6 +50,28 @@ func (h *Handler) List(c *gin.Context) {
 	}
 	if list == nil {
 		list = []Comment{}
+	}
+	if h.reactionProvider != nil && len(list) > 0 {
+		ids := make([]uuid.UUID, len(list))
+		for i := range list {
+			ids[i] = list[i].ID
+		}
+		userID := middleware.UserID(c)
+		counts, userReactions, err := h.reactionProvider.GetForComments(c.Request.Context(), ids, userID)
+		if err != nil {
+			httplog.LogError(c, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+		for i := range list {
+			if c, ok := counts[list[i].ID]; ok {
+				list[i].LikesCount = c.Likes
+				list[i].DislikesCount = c.Dislikes
+			}
+			if r, ok := userReactions[list[i].ID]; ok && r != "" {
+				list[i].UserReaction = &r
+			}
+		}
 	}
 	c.JSON(http.StatusOK, list)
 }

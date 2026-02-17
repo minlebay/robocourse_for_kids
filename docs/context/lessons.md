@@ -1,6 +1,6 @@
 # Домен: Каталог уроков (модули, уроки, шаги, материалы)
 
-**Обновлено:** 2025-02-09
+**Обновлено:** 2026-02-17
 
 ## Назначение
 
@@ -13,8 +13,10 @@
 - `DELETE /api/v1/modules/:id` — удалить курс и все его уроки (teacher).
 - `GET /api/v1/modules/:id` — один модуль с вложенными уроками.
 - `POST /api/v1/modules/:id/lessons` — добавить урок в курс (teacher). Тело: `{ "title", "description?", "lesson_type?", "sort_order?", "steps?" }`.
-- `GET /api/v1/lessons/:id` — урок по id (включая шаги, материалы, теги, чек-лист).
+- `GET /api/v1/lessons/:id` — урок по id (включая шаги, материалы, теги, чек-лист; счётчики лайков/дизлайков и `user_reaction` при авторизации).
 - `DELETE /api/v1/lessons/:id` — удалить урок (teacher).
+- `PUT /api/v1/lessons/:id/reaction` — поставить лайк/дизлайк уроку. Тело: `{ "reaction": "like" | "dislike" }`. JWT.
+- `DELETE /api/v1/lessons/:id/reaction` — убрать свою реакцию. JWT.
 
 ## Связи
 

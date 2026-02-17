@@ -12,7 +12,7 @@ import { MermaidDiagram } from './MermaidDiagram'
 import { MarkdownStepEditor } from './MarkdownStepEditor'
 import { markdownComponents } from './YouTubeEmbed'
 import { PageWithToc, type TocItem } from './PageWithToc'
-import type { Lesson as LessonType, LessonMaterial, LessonStatus, UserProgress, Module } from '../../shared/types'
+import type { Lesson as LessonType, LessonMaterial, LessonStatus, UserProgress, Module, ReactionType } from '../../shared/types'
 import { getSafeUrl } from '../../shared/url'
 import { ConfirmModal } from '../../components'
 import { CourseNav } from './CourseNav'
@@ -105,6 +105,57 @@ export function LessonPage() {
     },
     [id, user, progress, load]
   )
+
+  const setLessonReaction = useCallback(
+    (reaction: ReactionType) => {
+      if (!id || !user || !lesson) return
+      setLesson((prev) => {
+        if (!prev) return prev
+        const wasLike = prev.user_reaction === 'like'
+        const wasDislike = prev.user_reaction === 'dislike'
+        let likes = prev.likes_count ?? 0
+        let dislikes = prev.dislikes_count ?? 0
+        if (reaction === 'like') {
+          if (wasDislike) dislikes -= 1
+          if (!wasLike) likes += 1
+          return { ...prev, user_reaction: 'like' as const, likes_count: likes, dislikes_count: dislikes }
+        }
+        if (reaction === 'dislike') {
+          if (wasLike) likes -= 1
+          if (!wasDislike) dislikes += 1
+          return { ...prev, user_reaction: 'dislike' as const, likes_count: likes, dislikes_count: dislikes }
+        }
+        return prev
+      })
+      lessonsApi
+        .setReaction(id, reaction)
+        .catch((err) => {
+          setError(err.message)
+          load()
+        })
+    },
+    [id, user, lesson, load]
+  )
+
+  const clearLessonReaction = useCallback(() => {
+    if (!id || !user || !lesson) return
+    setLesson((prev) => {
+      if (!prev) return prev
+      const wasLike = prev.user_reaction === 'like'
+      const wasDislike = prev.user_reaction === 'dislike'
+      let likes = prev.likes_count ?? 0
+      let dislikes = prev.dislikes_count ?? 0
+      if (wasLike) likes = Math.max(0, likes - 1)
+      if (wasDislike) dislikes = Math.max(0, dislikes - 1)
+      return { ...prev, user_reaction: undefined, likes_count: likes, dislikes_count: dislikes }
+    })
+    lessonsApi
+      .deleteReaction(id)
+      .catch((err) => {
+        setError(err.message)
+        load()
+      })
+  }, [id, user, lesson, load])
 
   const getLessonStatus = (): LessonStatus => {
     if (!progress || !id) return 'not_started'
@@ -421,6 +472,29 @@ export function LessonPage() {
           </div>
         </section>
       )}
+
+      <div className="lesson-reactions" aria-label="Реакции к уроку">
+        <button
+          type="button"
+          className={`lesson-reaction-btn ${lesson.user_reaction === 'like' ? 'active' : ''}`}
+          onClick={user ? () => (lesson.user_reaction === 'like' ? clearLessonReaction() : setLessonReaction('like')) : undefined}
+          title="Нравится"
+          aria-pressed={lesson.user_reaction === 'like'}
+          disabled={!user}
+        >
+          👍 <span className="lesson-reaction-count">{lesson.likes_count ?? 0}</span>
+        </button>
+        <button
+          type="button"
+          className={`lesson-reaction-btn ${lesson.user_reaction === 'dislike' ? 'active' : ''}`}
+          onClick={user ? () => (lesson.user_reaction === 'dislike' ? clearLessonReaction() : setLessonReaction('dislike')) : undefined}
+          title="Не нравится"
+          aria-pressed={lesson.user_reaction === 'dislike'}
+          disabled={!user}
+        >
+          👎 <span className="lesson-reaction-count">{lesson.dislikes_count ?? 0}</span>
+        </button>
+      </div>
 
       <LessonChat lessonId={lesson.id} />
       <LessonComments lessonId={lesson.id} />

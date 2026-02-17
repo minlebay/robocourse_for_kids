@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"learn_kids/backend/internal/httplog"
+	"learn_kids/backend/internal/middleware"
 	"learn_kids/backend/internal/sanitize"
 )
 
@@ -37,12 +38,18 @@ type Repository interface {
 	UpdateLesson(ctx context.Context, id uuid.UUID, title, description *string, steps []LessonStep) (*Lesson, error)
 }
 
-type Handler struct {
-	repo Repository
+// LessonReactionProvider optionally provides reaction counts for a lesson (implemented by reactions domain or adapter).
+type LessonReactionProvider interface {
+	GetForLesson(ctx context.Context, lessonID, userID uuid.UUID) (likes, dislikes int, userReaction string, err error)
 }
 
-func NewHandler(repo Repository) *Handler {
-	return &Handler{repo: repo}
+type Handler struct {
+	repo             Repository
+	reactionProvider LessonReactionProvider // optional; nil = do not attach reaction counts
+}
+
+func NewHandler(repo Repository, reactionProvider LessonReactionProvider) *Handler {
+	return &Handler{repo: repo, reactionProvider: reactionProvider}
 }
 
 func (h *Handler) ListModules(c *gin.Context) {
@@ -250,6 +257,20 @@ func (h *Handler) GetLesson(c *gin.Context) {
 	if lesson == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "lesson not found"})
 		return
+	}
+	if h.reactionProvider != nil {
+		userID := middleware.UserID(c)
+		likes, dislikes, userReaction, err := h.reactionProvider.GetForLesson(c.Request.Context(), id, userID)
+		if err != nil {
+			httplog.LogError(c, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+		lesson.LikesCount = likes
+		lesson.DislikesCount = dislikes
+		if userReaction != "" {
+			lesson.UserReaction = &userReaction
+		}
 	}
 	c.JSON(http.StatusOK, lesson)
 }

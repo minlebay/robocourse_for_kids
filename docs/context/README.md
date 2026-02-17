@@ -17,6 +17,7 @@
 | [auth.md](auth.md) | Пользователи, роли, JWT, эндпоинты auth |
 | [progress.md](progress.md) | Прогресс по урокам и чек-листам |
 | [comments.md](comments.md) | Комментарии пользователей к урокам |
+| [reactions.md](reactions.md) | Лайки и дизлайки к урокам и комментариям |
 | [parent-dashboard.md](parent-dashboard.md) | Дашборд родителя, доступ к прогрессу учеников |
 | [api-contract.md](api-contract.md) | Сводка эндпоинтов и форматов (выжимка OpenAPI) |
 | [frontend-review.md](frontend-review.md) | Ревью фронтенда (структура, тесты, линтер, рекомендации) |

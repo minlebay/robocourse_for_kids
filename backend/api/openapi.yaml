@@ -292,6 +292,47 @@ paths:
         '401':
           description: Не авторизован
 
+  /lessons/{id}/reaction:
+    put:
+      summary: Поставить лайк/дизлайк уроку
+      tags: [reactions]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reaction]
+              properties:
+                reaction: { type: string, enum: [like, dislike] }
+      responses:
+        '204':
+          description: OK
+        '400':
+          description: Неверный id или reaction
+        '401':
+          description: Не авторизован
+    delete:
+      summary: Убрать свою реакцию к уроку
+      tags: [reactions]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: OK
+        '401':
+          description: Не авторизован
+
   /lessons/{id}/comments/{commentId}:
     delete:
       summary: Удалить свой комментарий
@@ -315,6 +356,57 @@ paths:
           description: Не авторизован
         '404':
           description: Комментарий не найден или доступ запрещён
+
+  /lessons/{id}/comments/{commentId}/reaction:
+    put:
+      summary: Поставить лайк/дизлайк комментарию
+      tags: [reactions]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          description: ID урока
+        - name: commentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          description: ID комментария
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reaction]
+              properties:
+                reaction: { type: string, enum: [like, dislike] }
+      responses:
+        '204':
+          description: OK
+        '400':
+          description: Неверный id или reaction
+        '401':
+          description: Не авторизован
+    delete:
+      summary: Убрать свою реакцию к комментарию
+      tags: [reactions]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: commentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: OK
+        '401':
+          description: Не авторизован
 
   /lessons/{id}:
     get:
@@ -532,6 +624,9 @@ components:
         tags: { type: array, items: { type: string } }
         checklist: { type: array, items: { $ref: '#/components/schemas/ChecklistItem' } }
         created_at: { type: string, format: date-time }
+        likes_count: { type: integer, description: "Количество лайков" }
+        dislikes_count: { type: integer, description: "Количество дизлайков" }
+        user_reaction: { type: string, enum: [like, dislike], description: "Реакция текущего пользователя (если авторизован)" }
     LessonStep:
       type: object
       properties:
@@ -564,6 +659,9 @@ components:
         user_name: { type: string }
         text: { type: string }
         created_at: { type: string, format: date-time }
+        likes_count: { type: integer, description: "Количество лайков" }
+        dislikes_count: { type: integer, description: "Количество дизлайков" }
+        user_reaction: { type: string, enum: [like, dislike], description: "Реакция текущего пользователя (если авторизован)" }
     UserProgress:
       type: object
       properties:

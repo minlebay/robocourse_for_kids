@@ -1740,6 +1740,84 @@ body {
   margin: 0;
 }
 
+/* Lesson reactions (likes/dislikes) — две кнопки, у каждой свой счётчик */
+.lesson-reactions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  padding: 0.5rem 0;
+}
+.lesson-reaction-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  font-size: 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.lesson-reaction-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}
+.lesson-reaction-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+.lesson-reaction-btn:disabled {
+  cursor: default;
+  opacity: 0.9;
+}
+.lesson-reaction-count {
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Comment reactions — две кнопки, у каждой свой счётчик */
+.comment-reactions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+.comment-reaction-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.4rem;
+  font-size: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.comment-reaction-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}
+.comment-reaction-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+.comment-reaction-btn:disabled {
+  cursor: default;
+  opacity: 0.9;
+}
+.comment-reaction-count {
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Module page */
 .module-page {
   background: var(--bg-card);
