@@ -5,9 +5,10 @@ import type { Lesson, Module } from '../../shared/types'
 type CourseNavProps = {
   module: Module | null
   currentLesson: Lesson
+  className?: string
 }
 
-export function CourseNav({ module, currentLesson }: CourseNavProps) {
+export function CourseNav({ module, currentLesson, className }: CourseNavProps) {
   const { t } = useTranslation()
   const orderedLessons = (module?.lessons ?? []).slice().sort((a, b) => a.sort_order - b.sort_order)
   const currentIndex = orderedLessons.findIndex((l) => l.id === currentLesson.id)
@@ -15,7 +16,7 @@ export function CourseNav({ module, currentLesson }: CourseNavProps) {
   const nextLesson = currentIndex >= 0 && currentIndex < orderedLessons.length - 1 ? orderedLessons[currentIndex + 1] : null
 
   return (
-    <nav className="course-nav" aria-label={t('courseNav.ariaLabel')}>
+    <nav className={className ?? 'course-nav'} aria-label={t('courseNav.ariaLabel')}>
       <Link to={module ? `/modules/${module.id}` : '/'} className="course-nav-home">
         {t('courseNav.home')}
       </Link>

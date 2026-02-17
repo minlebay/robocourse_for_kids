@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import styles from './LedBlinkSimulator.module.css'
 
 const DEFAULT_CODE = `from machine import Pin
 import time
@@ -116,57 +117,70 @@ export function LedBlinkSimulator() {
   useEffect(() => () => stop(), [stop])
 
   return (
-    <div className="simulator simulator-led">
-      <div className="simulator-header">
-        <span className="simulator-title">Тренажёр: мигающий светодиод</span>
-        <div className="simulator-actions">
+    <section
+      className={`${styles.root} ${styles.led}`}
+      aria-label="Тренажёр: мигающий светодиод"
+      role="region"
+    >
+      <div className={styles.header}>
+        <h3 className={styles.title}>Тренажёр: мигающий светодиод</h3>
+        <div className={styles.actions}>
           <button
             type="button"
-            className="simulator-btn run"
+            className={`${styles.btn} ${styles.btnRun}`}
             onClick={run}
             disabled={running}
+            aria-pressed={running}
+            aria-label="Запуск симуляции"
           >
             Запуск
           </button>
           <button
             type="button"
-            className="simulator-btn stop"
+            className={`${styles.btn} ${styles.btnStop}`}
             onClick={stop}
             disabled={!running}
+            aria-label="Остановить симуляцию"
           >
             Стоп
           </button>
         </div>
       </div>
-      <div className="simulator-body">
-        <div className="simulator-board" aria-label="Плата Pico">
-          <div className="simulator-board-inner">
-            <span className="simulator-board-title">Pico</span>
-            <div className="simulator-led-wrap">
+      <div className={styles.body}>
+        <div className={styles.board} aria-label="Плата Pico">
+          <div className={styles.boardInner}>
+            <span className={styles.boardTitle}>Pico</span>
+            <div className={styles.ledWrap}>
               <div
-                className={`simulator-led ${ledOn ? 'on' : ''}`}
+                className={`${styles.led} ${ledOn ? styles.ledOn : ''}`}
                 title={ledOn ? 'Включён' : 'Выключен'}
                 aria-hidden
+                aria-live="polite"
               />
-              <span className="simulator-led-label">LED</span>
+              <span className={styles.ledLabel} id="sim-led-label">LED</span>
             </div>
           </div>
         </div>
-        <div className="simulator-editor-wrap">
-          <label className="simulator-editor-label">Код (MicroPython)</label>
+        <div className={styles.editorWrap}>
+          <label htmlFor="simulator-code" className={styles.editorLabel}>
+            Код (MicroPython)
+          </label>
           <textarea
-            className="simulator-editor"
+            id="simulator-code"
+            className={styles.editor}
             value={code}
             onChange={(e) => setCode(e.target.value)}
             spellCheck={false}
             rows={14}
             disabled={running}
+            aria-describedby="sim-hint"
+            aria-label="Редактор кода MicroPython"
           />
         </div>
       </div>
-      <p className="simulator-hint">
+      <p id="sim-hint" className={styles.hint}>
         Для встроенного светодиода: <code>led = Pin("LED", Pin.OUT)</code>. Поддерживаются команды: <code>led.value(1)</code> / <code>led.value(0)</code>, <code>time.sleep(секунды)</code>. Цикл повторяется несколько раз, затем останавливается.
       </p>
-    </div>
+    </section>
   )
 }

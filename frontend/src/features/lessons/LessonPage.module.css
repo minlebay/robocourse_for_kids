@@ -1,0 +1,588 @@
+/* Контейнер страницы урока */
+.root {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  padding: 2rem;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--glass-border);
+  box-sizing: border-box;
+}
+
+.content {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.courseNav {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.courseNavLast {
+  margin-top: 3rem;
+  margin-bottom: 0;
+  padding-top: 1rem;
+  padding-bottom: 0;
+  border-bottom: none;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+  clear: both;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+}
+
+.courseNav a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.courseNav a:hover {
+  text-decoration: underline;
+}
+
+.courseNav .disabled {
+  color: var(--text-muted);
+  cursor: default;
+  font-weight: 500;
+}
+
+.pageTitle {
+  margin-top: 0.5rem;
+  font-size: 1.6rem;
+  color: var(--text);
+}
+
+.description {
+  color: var(--text-muted);
+  font-size: 1.05rem;
+}
+
+.meta,
+.tags {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0.5rem 0;
+}
+
+/* Панель и форма редактирования (teacher) */
+.editBar {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.editForm {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  box-sizing: border-box;
+}
+
+.editForm h2 {
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+  font-size: 1.25rem;
+}
+
+.editForm h3 {
+  margin: 1.5rem 0 0.75rem;
+  font-size: 1.05rem;
+}
+
+.editForm :global(.form-group) {
+  margin-bottom: 1rem;
+}
+
+.editForm :global(.form-group) label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.editForm input,
+.editForm input[type="text"],
+.editForm textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--text);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+}
+
+.editForm textarea {
+  min-height: 4rem;
+  resize: vertical;
+}
+
+.editStep {
+  margin: 1.25rem 0;
+  padding: 1rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  border-left: 3px solid var(--accent);
+}
+
+.editStep :global(.form-group) {
+  margin-bottom: 0.75rem;
+}
+
+.editForm .formActions {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+/* Прогресс */
+.progressActions {
+  margin: 1.25rem 0;
+  padding: 1rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.progressActions span {
+  font-weight: 700;
+  margin-right: 0.25rem;
+}
+
+.progressActions button {
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+  border: 2px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.progressActions button.active {
+  background: var(--success);
+  color: var(--accent-on);
+  border-color: var(--success);
+}
+
+/* Секции: шаги, чек-лист, материалы */
+.sectionSteps,
+.sectionChecklist,
+.sectionMaterials {
+  margin-top: 2rem;
+}
+
+.sectionSteps h2,
+.sectionChecklist h2,
+.sectionMaterials h2 {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  color: var(--text);
+}
+
+.step {
+  margin: 1.25rem 0;
+  padding: 1.25rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  border-left: 4px solid var(--accent);
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.step h3 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+
+.stepContent {
+  margin-top: 0.5rem;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Markdown-контент шага */
+.stepContentMarkdown p {
+  margin: 0 0 0.75rem;
+  line-height: 1.5;
+}
+
+.stepContentMarkdown p:last-child {
+  margin-bottom: 0;
+}
+
+.stepContentMarkdown ul,
+.stepContentMarkdown ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.stepContentMarkdown li {
+  margin: 0.25rem 0;
+  line-height: 1.5;
+}
+
+.stepContentMarkdown pre {
+  margin: 0.75rem 0;
+  padding: 1rem 1.25rem;
+  font-family: ui-monospace, "SF Mono", "Consolas", "Liberation Mono", Menlo, monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  color: var(--text);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.stepContentMarkdown pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.stepContentMarkdown pre code.hljs {
+  color: var(--text);
+  padding: 0;
+}
+
+.stepContentMarkdown :global(.hljs-comment),
+.stepContentMarkdown :global(.hljs-quote),
+.stepContentMarkdown :global(.hljs-doctag) {
+  color: var(--text-muted);
+}
+
+.stepContentMarkdown :global(.hljs-keyword),
+.stepContentMarkdown :global(.hljs-selector-tag),
+.stepContentMarkdown :global(.hljs-addition) {
+  color: var(--accent);
+}
+
+.stepContentMarkdown :global(.hljs-string),
+.stepContentMarkdown :global(.hljs-attr) {
+  color: var(--success);
+}
+
+.stepContentMarkdown :global(.hljs-number),
+.stepContentMarkdown :global(.hljs-literal),
+.stepContentMarkdown :global(.hljs-built_in) {
+  color: var(--accent);
+}
+
+.stepContentMarkdown :global(.hljs-title),
+.stepContentMarkdown :global(.hljs-title.function_) {
+  color: var(--text);
+}
+
+.stepContentMarkdown :global(.hljs-params),
+.stepContentMarkdown :global(.hljs-meta),
+.stepContentMarkdown :global(.hljs-variable) {
+  color: var(--text-muted);
+}
+
+.stepContentMarkdown :global(.hljs-punctuation),
+.stepContentMarkdown :global(.hljs-operator) {
+  color: var(--text);
+}
+
+.stepContentMarkdown :global(.hljs-type),
+.stepContentMarkdown :global(.hljs-class) {
+  color: var(--accent);
+}
+
+.stepContentMarkdown :global(.hljs-regexp),
+.stepContentMarkdown :global(.hljs-symbol) {
+  color: var(--success);
+}
+
+.stepContentMarkdown :not(pre) > code {
+  font-family: ui-monospace, "SF Mono", "Consolas", "Liberation Mono", Menlo, monospace;
+  font-size: 0.9em;
+  padding: 0.15em 0.4em;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+}
+
+.stepContentMarkdown a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.stepContentMarkdown a:hover {
+  text-decoration: underline;
+}
+
+.stepContentMarkdown strong {
+  font-weight: 700;
+}
+
+.stepContentMarkdown h1,
+.stepContentMarkdown h2,
+.stepContentMarkdown h3,
+.stepContentMarkdown h4 {
+  margin: 1rem 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.stepContentMarkdown h1:first-child,
+.stepContentMarkdown h2:first-child,
+.stepContentMarkdown h3:first-child,
+.stepContentMarkdown h4:first-child {
+  margin-top: 0;
+}
+
+.stepContentMarkdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  display: block;
+  margin: 0.75rem 0;
+}
+
+.stepContentMarkdown :global(.youtube-embed) {
+  margin: 1rem 0;
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+
+.stepContentMarkdown :global(.youtube-embed) iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* Чек-лист */
+.checklist ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.checklist li {
+  margin: 0.75rem 0;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.checklist li:last-child {
+  border-bottom: none;
+}
+
+.checklist input[type="checkbox"] {
+  margin-right: 0.75rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--accent);
+}
+
+.checklist label {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* Материалы */
+.materialsInner {
+  display: block;
+}
+
+.materialsList,
+.materialsList ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+  display: block;
+}
+
+.materialsListRest {
+  margin-top: 2.5rem;
+}
+
+.materialsList > li,
+.materialsList ul > li {
+  display: block;
+  margin-bottom: 2rem;
+  position: relative;
+  z-index: 0;
+}
+
+.materialsList ul > li + li {
+  margin-top: 0.5rem;
+}
+
+.materialsList ul > li:last-child {
+  margin-bottom: 0;
+}
+
+.materialsList a {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.materialImage {
+  margin-top: 0.5rem;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  max-width: 100%;
+}
+
+.materialImage img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.materialImage figcaption {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+}
+
+.materialMermaid {
+  list-style: none;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  display: block;
+  clear: both;
+  position: relative;
+  z-index: 0;
+}
+
+.materialSimulator {
+  margin: 0 0 2.5rem;
+  padding: 0;
+  list-style: none;
+  display: block;
+  clear: both;
+  width: 100%;
+  max-width: 100%;
+  min-height: 1px;
+}
+
+.simulatorWrapper {
+  display: block;
+  width: 100%;
+  min-width: 100%;
+  margin: 0;
+  padding: 0;
+  min-height: 520px;
+}
+
+/* Реакции (лайк/дизлайк) */
+.reactions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  padding: 0.5rem 0;
+}
+
+.reactionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  font-size: 1.1rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.reactionBtn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}
+
+.reactionBtnActive {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+.reactionBtn:disabled {
+  cursor: default;
+  opacity: 0.9;
+}
+
+.reactionCount {
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}

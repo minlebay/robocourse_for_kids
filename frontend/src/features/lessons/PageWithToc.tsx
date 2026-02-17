@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import styles from './PageWithToc.module.css'
 
 const STORAGE_KEY = 'learn-kids-toc-width'
 const MIN_WIDTH = 200
@@ -72,26 +73,31 @@ export function PageWithToc({ title, items, children, containerClassName }: Page
     }
   }, [isDragging, saveWidth])
 
+  const isEditing = containerClassName === 'content-with-toc--editing'
+
   return (
-    <div className={['content-with-toc', containerClassName].filter(Boolean).join(' ')}>
+    <div
+      className={`${styles.container} ${isEditing ? styles.editing : ''}`}
+      role="presentation"
+    >
       <aside
         ref={sidebarRef}
-        className="toc-sidebar"
+        className={styles.sidebar}
         style={{ width: `${width}px` }}
         aria-label="Содержание"
       >
-        <div className="toc-sidebar-inner">
-          <h2 className="toc-title">{title}</h2>
-          <nav className="toc-nav">
-            <ul className="toc-list">
+        <div className={styles.sidebarInner}>
+          <h2 className={styles.title}>{title}</h2>
+          <nav className={styles.nav} aria-label="Навигация по урокам">
+            <ul className={styles.list}>
               {items.map((item) => (
-                <li key={item.id} className="toc-item">
+                <li key={item.id} className={styles.item}>
                   {item.active ? (
-                    <span className="toc-link toc-link-active" aria-current="page">
+                    <span className={`${styles.link} ${styles.linkActive}`} aria-current="page">
                       {item.title}
                     </span>
                   ) : (
-                    <Link to={item.href} className="toc-link">
+                    <Link to={item.href} className={styles.link}>
                       {item.title}
                     </Link>
                   )}
@@ -102,16 +108,17 @@ export function PageWithToc({ title, items, children, containerClassName }: Page
         </div>
       </aside>
       <div
-        className="toc-resize-handle"
+        className={styles.resizeHandle}
         onMouseDown={startDrag}
         role="separator"
         aria-orientation="vertical"
         aria-valuenow={width}
         aria-valuemin={MIN_WIDTH}
         aria-valuemax={MAX_WIDTH}
+        aria-label="Изменить ширину содержания"
         title="Изменить ширину содержания"
       />
-      <div className="toc-main">{children}</div>
+      <div className={styles.main}>{children}</div>
     </div>
   )
 }

@@ -5,14 +5,15 @@ type LessonProgressBarProps = {
   status: LessonStatus
   onStatusChange: (status: LessonStatus) => void
   isAuthenticated: boolean
+  className?: string
 }
 
-export function LessonProgressBar({ status, onStatusChange, isAuthenticated }: LessonProgressBarProps) {
+export function LessonProgressBar({ status, onStatusChange, isAuthenticated, className }: LessonProgressBarProps) {
   const { t } = useTranslation()
   if (!isAuthenticated) return null
 
   return (
-    <div className="progress-actions">
+    <div className={className ?? 'progress-actions'} role="group" aria-label={t('progress.statusLabel')}>
       <span>{t('progress.statusLabel')}: </span>
       <button
         type="button"
