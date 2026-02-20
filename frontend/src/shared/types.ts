@@ -13,9 +13,34 @@ export interface User {
   id: string
   login: string
   name: string
-  role: 'student' | 'teacher'
+  role: 'student' | 'teacher' | 'administrator'
   theme?: ThemeId
   created_at: string
+  email?: string
+  must_change_password?: boolean
+  is_blocked?: boolean
+}
+
+export interface AdminStats {
+  users: number
+  modules: number
+  lessons: number
+}
+
+export interface ActivityItem {
+  id: string
+  login: string
+  name: string
+  role: string
+  created_at: string
+}
+
+export interface AdminCreateUserRequest {
+  login: string
+  password: string
+  name: string
+  role: 'student' | 'teacher'
+  email?: string
 }
 
 export interface Module {

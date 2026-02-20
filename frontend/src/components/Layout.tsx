@@ -23,6 +23,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 {user.role === 'teacher' && (
                   <Link to="/dashboard">{t('nav.dashboard')}</Link>
                 )}
+                {user.role === 'administrator' && (
+                  <Link to="/admin">{t('nav.admin')}</Link>
+                )}
                 <button type="button" onClick={logout}>
                   {t('nav.logout')} ({user.name})
                 </button>

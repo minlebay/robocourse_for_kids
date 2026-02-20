@@ -1,4 +1,4 @@
-import type { LessonStatus, ReactionType } from './types'
+import type { LessonStatus, ReactionType, AdminCreateUserRequest, AdminStats, ActivityItem } from './types'
 
 const API_BASE = '/api/v1'
 const RETURN_URL_KEY = 'learn_kids_return_url'
@@ -109,6 +109,21 @@ export const auth = {
       method: 'PATCH',
       body: JSON.stringify({ theme }),
     }),
+  changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
+    const res = await request('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    })
+    if (!res.ok) {
+      if (res.status === 401) handle401()
+      const data = await res.json().catch(() => null)
+      const msg =
+        data && (typeof data.error === 'string' || typeof data.message === 'string')
+          ? String(data.error ?? data.message)
+          : 'Ошибка сервера. Попробуйте позже.'
+      throw new Error(msg)
+    }
+  },
 }
 
 export const modules = {
@@ -225,4 +240,26 @@ export const chat = {
     api<{ messages: ChatMessage[] }>(`/chat/${lessonId}/history`),
   clearHistory: (lessonId: string) =>
     apiVoid(`/chat/${lessonId}/history`, { method: 'DELETE' }),
+}
+
+export const admin = {
+  listUsers: () => api<import('./types').User[]>('/admin/users'),
+  createUser: (data: AdminCreateUserRequest) =>
+    api<{ user: import('./types').User; temp_password: string }>('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  deleteUser: (id: string) =>
+    apiVoid(`/admin/users/${id}`, { method: 'DELETE' }),
+  blockUser: (id: string, block: boolean) =>
+    apiVoid(`/admin/users/${id}/block`, {
+      method: 'POST',
+      body: JSON.stringify({ block }),
+    }),
+  resetPassword: (id: string) =>
+    api<{ temp_password: string }>(`/admin/users/${id}/reset-password`, {
+      method: 'POST',
+    }),
+  getStats: () => api<AdminStats>('/admin/stats'),
+  getActivity: () => api<ActivityItem[]>('/admin/activity'),
 }

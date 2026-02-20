@@ -32,7 +32,7 @@ func Auth(userHandler *users.Handler) gin.HandlerFunc {
 			return
 		}
 		token := strings.TrimPrefix(auth, prefix)
-		userID, role, expiresAt, err := userHandler.ParseToken(token)
+		userID, role, mustChangePassword, expiresAt, err := userHandler.ParseToken(token)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
 			c.Abort()
@@ -40,9 +40,10 @@ func Auth(userHandler *users.Handler) gin.HandlerFunc {
 		}
 		c.Set(requestcontext.UserIDKey, userID)
 		c.Set("user_role", role)
+		c.Set("must_change_password", mustChangePassword)
 		// Sliding session: при остатке времени меньше порога выдаём новый токен
 		if !expiresAt.IsZero() && time.Until(expiresAt) < users.SlidingRefreshThreshold {
-			if newToken, err := userHandler.NewToken(userID, role); err == nil {
+			if newToken, err := userHandler.NewToken(userID, role, mustChangePassword); err == nil {
 				c.Header(newTokenHeader, newToken)
 			}
 		}
@@ -63,7 +64,7 @@ func RequireAuth() gin.HandlerFunc {
 	}
 }
 
-// RequireTeacher aborts with 403 if the authenticated user is not a teacher.
+// RequireTeacher aborts with 403 if the authenticated user is not a teacher or administrator.
 // Must be used after RequireAuth.
 func RequireTeacher() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -73,10 +74,40 @@ func RequireTeacher() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		if role != users.RoleTeacher {
-			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden: teacher role required"})
+		if role != users.RoleTeacher && role != users.RoleAdministrator {
+			c.JSON(http.StatusForbidden, gin.H{"error": "insufficient role"})
 			c.Abort()
 			return
+		}
+		c.Next()
+	}
+}
+
+// RequireAdmin aborts with 403 if the authenticated user is not an administrator.
+// Must be used after RequireAuth.
+func RequireAdmin() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, _ := c.Get("user_role")
+		if role != users.RoleAdministrator {
+			c.JSON(http.StatusForbidden, gin.H{"error": "admin access required"})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
+// RequireFreshPassword blocks all requests if must_change_password is true,
+// except for POST /api/v1/auth/change-password.
+func RequireFreshPassword() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		mustChange, exists := c.Get("must_change_password")
+		if exists && mustChange == true {
+			if c.FullPath() != "/api/v1/auth/change-password" {
+				c.JSON(http.StatusForbidden, gin.H{"error": "password_change_required"})
+				c.Abort()
+				return
+			}
 		}
 		c.Next()
 	}

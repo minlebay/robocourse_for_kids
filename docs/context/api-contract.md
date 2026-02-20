@@ -1,6 +1,6 @@
 # Сводка контракта API
 
-**Обновлено:** 2026-02-17
+**Обновлено:** 2026-02-20
 
 Базовый префикс: `/api/v1`. Полная спецификация: [backend/api/openapi.yaml](../../backend/api/openapi.yaml).
 
@@ -13,6 +13,7 @@
 | POST | /api/v1/auth/login | Вход | — | 10/мин |
 | GET | /api/v1/auth/me | Текущий пользователь | JWT | — |
 | PATCH | /api/v1/auth/me | Обновить профиль (тема) | JWT | — |
+| POST | /api/v1/auth/change-password | Смена пароля (текущий + новый) | JWT | — |
 | GET | /api/v1/modules | Список модулей (?tag=...) | — | — |
 | POST | /api/v1/modules | Создать курс | JWT, teacher | — |
 | DELETE | /api/v1/modules/:id | Удалить курс | JWT, teacher | — |
@@ -37,6 +38,13 @@
 | GET | /api/v1/users | Список пользователей | JWT, teacher | — |
 | DELETE | /api/v1/users/:id | Удалить пользователя (не себя) | JWT, teacher | — |
 | GET | /api/v1/users/:id/progress | Прогресс ученика (404 если пользователь не найден) | JWT, teacher | — |
+| GET | /api/v1/admin/users | Список всех пользователей (включая is_blocked, email) | JWT, admin | — |
+| POST | /api/v1/admin/users | Создать пользователя с temp_password | JWT, admin | — |
+| DELETE | /api/v1/admin/users/:id | Удалить пользователя (не себя) | JWT, admin | — |
+| POST | /api/v1/admin/users/:id/block | Заблокировать/разблокировать. Тело: `{ "block": true }` | JWT, admin | — |
+| POST | /api/v1/admin/users/:id/reset-password | Сбросить пароль (генерирует temp_password) | JWT, admin | — |
+| GET | /api/v1/admin/stats | Статистика: users, modules, lessons | JWT, admin | — |
+| GET | /api/v1/admin/activity | Последние 20 зарегистрировавшихся | JWT, admin | — |
 
 ## Форматы
 
@@ -44,12 +52,15 @@
 - Ошибки: тело `{ "error": "..." }`.
 - JWT: заголовок `Authorization: Bearer <token>`. Время жизни: 1 час.
 - Max request body: 1 MB.
-- Невалидный Bearer → 401 (ранее молча пропускался).
+- Невалидный Bearer → 401.
+- `must_change_password=true` в JWT → 403 `{ "error": "password_change_required" }` на всех эндпоинтах кроме `POST /auth/change-password`.
+- `is_blocked=true` → 403 `{ "error": "user is blocked" }` при попытке входа.
 
 ## Безопасность
 
 - Регистрация teacher требует `invite_code` (env `TEACHER_INVITE_CODE`).
 - Пароль: 6–72 символа. Login: 3–50 символов. Имя: до 200 символов.
+- Email: валидируется через `net/mail.ParseAddress`.
 - Rate limiting: auth 10/мин, chat 20/мин (per IP).
 - System prompt для чата формируется на сервере (поле `lesson_context` удалено из запроса).
 - Chat: клиент отправляет только `message` (строка), историю сервер загружает из БД.

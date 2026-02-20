@@ -37,6 +37,7 @@ type Server struct {
 	// cached middleware closures (avoid re-creation on every request)
 	requireAuthMw    gin.HandlerFunc
 	requireTeacherMw gin.HandlerFunc
+	requireAdminMw   gin.HandlerFunc
 }
 
 type Deps struct {
@@ -87,6 +88,7 @@ func New(d Deps) *Server {
 		shutdownContext:  d.ShutdownContext,
 		requireAuthMw:    middleware.RequireAuth(),
 		requireTeacherMw: middleware.RequireTeacher(),
+		requireAdminMw:   middleware.RequireAdmin(),
 	}
 	s.routes()
 	return s
@@ -103,50 +105,65 @@ func (s *Server) routes() {
 	authLimiter := middleware.NewRateLimiter(10, time.Minute, s.shutdownContext)
 	chatLimiter := middleware.NewRateLimiter(20, time.Minute, s.shutdownContext)
 
-	api := s.engine.Group("/api/v1")
-	api.Use(middleware.Auth(s.users))
+	apiGroup := s.engine.Group("/api/v1")
+	apiGroup.Use(middleware.Auth(s.users))
+	apiGroup.Use(middleware.RequireFreshPassword())
 
 	// Public auth (rate limited)
-	api.POST("/auth/register", authLimiter.Handler(), s.users.RegisterUser)
-	api.POST("/auth/login", authLimiter.Handler(), s.users.Login)
+	apiGroup.POST("/auth/register", authLimiter.Handler(), s.users.RegisterUser)
+	apiGroup.POST("/auth/login", authLimiter.Handler(), s.users.Login)
+
+	// Change password (auth required, exempt from RequireFreshPassword block)
+	apiGroup.POST("/auth/change-password", s.requireAuth, s.users.ChangePassword)
 
 	// Lessons (public read; teacher can create/update)
-	api.GET("/modules", s.lessons.ListModules)
-	api.GET("/modules/:id", s.lessons.GetModule)
-	api.GET("/lessons/:id", s.lessons.GetLesson)
-	api.PUT("/lessons/:id", s.requireAuth, s.requireTeacher, s.lessons.UpdateLesson)
-	api.DELETE("/lessons/:id", s.requireAuth, s.requireTeacher, s.lessons.DeleteLesson)
-	api.POST("/modules", s.requireAuth, s.requireTeacher, s.lessons.CreateModule)
-	api.DELETE("/modules/:id", s.requireAuth, s.requireTeacher, s.lessons.DeleteModule)
-	api.POST("/modules/:id/lessons", s.requireAuth, s.requireTeacher, s.lessons.CreateLesson)
+	apiGroup.GET("/modules", s.lessons.ListModules)
+	apiGroup.GET("/modules/:id", s.lessons.GetModule)
+	apiGroup.GET("/lessons/:id", s.lessons.GetLesson)
+	apiGroup.PUT("/lessons/:id", s.requireAuth, s.requireTeacher, s.lessons.UpdateLesson)
+	apiGroup.DELETE("/lessons/:id", s.requireAuth, s.requireTeacher, s.lessons.DeleteLesson)
+	apiGroup.POST("/modules", s.requireAuth, s.requireTeacher, s.lessons.CreateModule)
+	apiGroup.DELETE("/modules/:id", s.requireAuth, s.requireTeacher, s.lessons.DeleteModule)
+	apiGroup.POST("/modules/:id/lessons", s.requireAuth, s.requireTeacher, s.lessons.CreateLesson)
 
 	// Comments (public read; auth required to post)
-	api.GET("/lessons/:id/comments", s.comments.List)
-	api.POST("/lessons/:id/comments", s.requireAuth, s.comments.Create)
-	api.DELETE("/lessons/:id/comments/:commentId", s.requireAuth, s.comments.Delete)
+	apiGroup.GET("/lessons/:id/comments", s.comments.List)
+	apiGroup.POST("/lessons/:id/comments", s.requireAuth, s.comments.Create)
+	apiGroup.DELETE("/lessons/:id/comments/:commentId", s.requireAuth, s.comments.Delete)
 
 	// Reactions (likes/dislikes) for lessons and comments — JWT required to set/delete
-	api.PUT("/lessons/:id/reaction", s.requireAuth, s.reactions.SetLessonReaction)
-	api.DELETE("/lessons/:id/reaction", s.requireAuth, s.reactions.DeleteLessonReaction)
-	api.PUT("/lessons/:id/comments/:commentId/reaction", s.requireAuth, s.reactions.SetCommentReaction)
-	api.DELETE("/lessons/:id/comments/:commentId/reaction", s.requireAuth, s.reactions.DeleteCommentReaction)
+	apiGroup.PUT("/lessons/:id/reaction", s.requireAuth, s.reactions.SetLessonReaction)
+	apiGroup.DELETE("/lessons/:id/reaction", s.requireAuth, s.reactions.DeleteLessonReaction)
+	apiGroup.PUT("/lessons/:id/comments/:commentId/reaction", s.requireAuth, s.reactions.SetCommentReaction)
+	apiGroup.DELETE("/lessons/:id/comments/:commentId/reaction", s.requireAuth, s.reactions.DeleteCommentReaction)
 
 	// Auth required from here for some routes
-	api.GET("/auth/me", s.requireAuth, s.users.Me)
-	api.PATCH("/auth/me", s.requireAuth, s.users.UpdateMe)
-	api.GET("/progress", s.requireAuth, s.progress.GetProgress)
-	api.PUT("/lessons/:id/progress", s.requireAuth, s.progress.SetLessonProgress)
-	api.PUT("/lessons/:id/checklist/:itemId", s.requireAuth, s.progress.SetChecklistItem)
+	apiGroup.GET("/auth/me", s.requireAuth, s.users.Me)
+	apiGroup.PATCH("/auth/me", s.requireAuth, s.users.UpdateMe)
+	apiGroup.GET("/progress", s.requireAuth, s.progress.GetProgress)
+	apiGroup.PUT("/lessons/:id/progress", s.requireAuth, s.progress.SetLessonProgress)
+	apiGroup.PUT("/lessons/:id/checklist/:itemId", s.requireAuth, s.progress.SetChecklistItem)
 
 	// Chat with Gemini (auth required, rate limited)
-	api.POST("/chat", s.requireAuth, chatLimiter.Handler(), s.chat.Chat)
-	api.GET("/chat/:lessonId/history", s.requireAuth, s.chat.GetHistory)
-	api.DELETE("/chat/:lessonId/history", s.requireAuth, s.chat.ClearHistory)
+	apiGroup.POST("/chat", s.requireAuth, chatLimiter.Handler(), s.chat.Chat)
+	apiGroup.GET("/chat/:lessonId/history", s.requireAuth, s.chat.GetHistory)
+	apiGroup.DELETE("/chat/:lessonId/history", s.requireAuth, s.chat.ClearHistory)
 
 	// Teacher only
-	api.GET("/users", s.requireAuth, s.requireTeacher, s.users.ListUsers)
-	api.DELETE("/users/:id", s.requireAuth, s.requireTeacher, s.users.DeleteUser)
-	api.GET("/users/:id/progress", s.requireAuth, s.requireTeacher, s.progress.GetUserProgress)
+	apiGroup.GET("/users", s.requireAuth, s.requireTeacher, s.users.ListUsers)
+	apiGroup.DELETE("/users/:id", s.requireAuth, s.requireTeacher, s.users.DeleteUser)
+	apiGroup.GET("/users/:id/progress", s.requireAuth, s.requireTeacher, s.progress.GetUserProgress)
+
+	// Admin only
+	adminGroup := apiGroup.Group("/admin")
+	adminGroup.Use(s.requireAuth, s.requireAdmin)
+	adminGroup.GET("/users", s.users.AdminListUsers)
+	adminGroup.POST("/users", s.users.AdminCreateUser)
+	adminGroup.DELETE("/users/:id", s.users.AdminDeleteUser)
+	adminGroup.POST("/users/:id/block", s.users.AdminBlockUser)
+	adminGroup.POST("/users/:id/reset-password", s.users.AdminResetPassword)
+	adminGroup.GET("/stats", s.users.AdminGetStats)
+	adminGroup.GET("/activity", s.users.AdminGetActivity)
 
 	// Frontend static (optional: serve from ./web when present, e.g. in Docker)
 	if _, err := os.Stat("./web/index.html"); err == nil {
@@ -168,6 +185,10 @@ func (s *Server) requireAuth(c *gin.Context) {
 
 func (s *Server) requireTeacher(c *gin.Context) {
 	s.requireTeacherMw(c)
+}
+
+func (s *Server) requireAdmin(c *gin.Context) {
+	s.requireAdminMw(c)
 }
 
 func (s *Server) health(c *gin.Context) {
