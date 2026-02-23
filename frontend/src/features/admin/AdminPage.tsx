@@ -27,44 +27,47 @@ export function AdminPage() {
   const [tempPassword, setTempPassword] = useState<string | null>(null)
 
   const [actionError, setActionError] = useState('')
+  const [loadError, setLoadError] = useState('')
 
   const loadUsers = useCallback(async () => {
     setUsersLoading(true)
     try {
       const data = await adminApi.listUsers()
       setUsers(data)
-    } catch {
-      // error is non-critical; keep stale data
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : t('errors.loadFailed'))
     } finally {
       setUsersLoading(false)
     }
-  }, [])
+  }, [t])
+
+  const loadStats = useCallback(async () => {
+    try {
+      const data = await adminApi.getStats()
+      setStats(data)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : t('errors.loadFailed'))
+    } finally {
+      setStatsLoading(false)
+    }
+  }, [t])
+
+  const loadActivity = useCallback(async () => {
+    try {
+      const data = await adminApi.getActivity()
+      setActivity(data)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : t('errors.loadFailed'))
+    } finally {
+      setActivityLoading(false)
+    }
+  }, [t])
 
   useEffect(() => {
-    async function loadStats() {
-      try {
-        const data = await adminApi.getStats()
-        setStats(data)
-      } catch {
-        // ignore
-      } finally {
-        setStatsLoading(false)
-      }
-    }
-    async function loadActivity() {
-      try {
-        const data = await adminApi.getActivity()
-        setActivity(data)
-      } catch {
-        // ignore
-      } finally {
-        setActivityLoading(false)
-      }
-    }
     loadStats()
     loadActivity()
     loadUsers()
-  }, [loadUsers])
+  }, [loadStats, loadActivity, loadUsers])
 
   async function handleBlock(id: string, block: boolean) {
     setActionError('')
@@ -109,6 +112,20 @@ export function AdminPage() {
       <h1>{t('admin.title')}</h1>
 
       <StatsCards stats={stats} loading={statsLoading} />
+
+      {loadError && (
+        <p className="error" role="alert" style={{ marginBottom: '1rem' }}>
+          {loadError}
+          <button
+            type="button"
+            className="button-secondary"
+            style={{ marginLeft: '1rem', padding: '0.2rem 0.75rem', fontSize: '0.85rem' }}
+            onClick={() => { setLoadError(''); loadStats(); loadActivity(); loadUsers() }}
+          >
+            {t('common.retry')}
+          </button>
+        </p>
+      )}
 
       {actionError && (
         <p className="error" role="alert" style={{ marginBottom: '1rem' }}>

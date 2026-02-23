@@ -255,6 +255,21 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 		return
 	}
 
+	target, err := h.repo.GetByID(ctx, targetID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	if target.Role != RoleStudent {
+		c.JSON(http.StatusForbidden, gin.H{"error": "teachers can only delete students"})
+		return
+	}
+
 	deleted, err := h.repo.Delete(ctx, targetID)
 	if err != nil {
 		httplog.LogError(c, err)
@@ -265,6 +280,7 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
+	httplog.LogAudit(c, "delete_user", "actor", currentID, "target", targetID)
 	c.Status(http.StatusNoContent)
 }
 
@@ -464,6 +480,7 @@ func (h *Handler) AdminDeleteUser(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
+	httplog.LogAudit(c, "admin_delete_user", "actor", currentID, "target", targetID)
 	c.Status(http.StatusNoContent)
 }
 
@@ -502,12 +519,14 @@ func (h *Handler) AdminBlockUser(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-
+	httplog.LogAudit(c, "admin_block_user", "actor", currentID, "target", targetID, "blocked", req.Block)
 	c.JSON(http.StatusOK, gin.H{"blocked": req.Block})
 }
 
 // AdminResetPassword handles POST /api/v1/admin/users/:id/reset-password.
 func (h *Handler) AdminResetPassword(c *gin.Context) {
+	actorID := requestcontext.GetUserID(c)
+
 	targetID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
@@ -533,7 +552,7 @@ func (h *Handler) AdminResetPassword(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-
+	httplog.LogAudit(c, "admin_reset_password", "actor", actorID, "target", targetID)
 	c.JSON(http.StatusOK, gin.H{"temp_password": tempPassword})
 }
 

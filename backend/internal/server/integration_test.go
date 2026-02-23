@@ -78,8 +78,13 @@ func TestMain(m *testing.M) {
 			ShutdownContext: shutdownCtx,
 		}),
 	}
+	// Pre-test cleanup: remove any leftover test data from a previous aborted run.
+	// ON DELETE CASCADE handles all user-related rows (progress, comments, chat, reactions).
+	_, _ = pool.Exec(ctx, `DELETE FROM users WHERE login LIKE 'testuser_%'`)
+
 	code := m.Run()
-	// Очистка тестовых пользователей (login LIKE 'testuser_%'), созданных интеграционными тестами
+
+	// Post-test cleanup: remove test data created during this run.
 	_, _ = pool.Exec(ctx, `DELETE FROM users WHERE login LIKE 'testuser_%'`)
 	pool.Close()
 	os.Exit(code)

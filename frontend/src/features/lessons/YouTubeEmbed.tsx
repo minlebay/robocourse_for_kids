@@ -27,6 +27,18 @@ function isYouTubeUrl(href: string): boolean {
   }
 }
 
+/** Отклоняет небезопасные схемы (javascript:, data:, vbscript: и т.п.) */
+function isSafeUrl(href: string | undefined): boolean {
+  if (!href) return false
+  try {
+    const u = new URL(href)
+    return u.protocol === 'https:' || u.protocol === 'http:'
+  } catch {
+    // Относительные пути разрешены (начинаются с / или #)
+    return href.startsWith('/') || href.startsWith('#')
+  }
+}
+
 export function YouTubeEmbed({ videoId }: { videoId: string }) {
   return (
     <figure className="youtube-embed">
@@ -34,6 +46,7 @@ export function YouTubeEmbed({ videoId }: { videoId: string }) {
         src={`https://www.youtube.com/embed/${encodeURIComponent(videoId)}`}
         title="YouTube video player"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
         allowFullScreen
       />
     </figure>
@@ -47,6 +60,10 @@ export const markdownComponents = {
       if (videoId) {
         return <YouTubeEmbed videoId={videoId} />
       }
+    }
+    if (!isSafeUrl(href)) {
+      // Небезопасная схема — рендерим как простой текст
+      return <span>{children}</span>
     }
     return (
       <a href={href} target="_blank" rel="noreferrer noopener" {...props}>

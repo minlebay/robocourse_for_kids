@@ -63,7 +63,7 @@ func New(d Deps) *Server {
 
 	origin := d.FrontendOrigin
 	if origin == "" {
-		origin = "*"
+		origin = "http://localhost:5173"
 	}
 	engine.Use(gin.Recovery())
 	engine.Use(middleware.CORS(origin))
@@ -102,10 +102,12 @@ func (s *Server) routes() {
 	})
 
 	// Rate limiters (shutdown context stops cleanup goroutines on server exit)
-	authLimiter := middleware.NewRateLimiter(10, time.Minute, s.shutdownContext)
-	chatLimiter := middleware.NewRateLimiter(20, time.Minute, s.shutdownContext)
+	apiLimiter  := middleware.NewRateLimiter(300, time.Minute, s.shutdownContext) // general: all API endpoints
+	authLimiter := middleware.NewRateLimiter(10, time.Minute, s.shutdownContext)  // strict: auth endpoints
+	chatLimiter := middleware.NewRateLimiter(20, time.Minute, s.shutdownContext)  // strict: AI chat
 
 	apiGroup := s.engine.Group("/api/v1")
+	apiGroup.Use(apiLimiter.Handler())
 	apiGroup.Use(middleware.Auth(s.users))
 	apiGroup.Use(middleware.RequireFreshPassword())
 

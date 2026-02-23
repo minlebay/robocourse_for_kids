@@ -7,10 +7,7 @@ import (
 
 func RequestID() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id := c.GetHeader("X-Request-ID")
-		if id == "" {
-			id = uuid.New().String()
-		}
+		id := uuid.New().String()
 		c.Set("request_id", id)
 		c.Writer.Header().Set("X-Request-ID", id)
 		c.Next()

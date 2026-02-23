@@ -424,14 +424,17 @@ func TestListUsers_Success(t *testing.T) {
 // ==================== DeleteUser ====================
 
 func TestDeleteUser_Success(t *testing.T) {
+	myID := uuid.New()
+	targetID := uuid.New()
 	repo := &mockRepo{
+		GetByIDFn: func(ctx context.Context, id uuid.UUID) (*User, error) {
+			return &User{ID: id, Role: RoleStudent}, nil
+		},
 		DeleteFn: func(ctx context.Context, id uuid.UUID) (bool, error) {
 			return true, nil
 		},
 	}
 	h := NewHandler(repo, "s", "")
-	myID := uuid.New()
-	targetID := uuid.New()
 
 	r := gin.New()
 	r.DELETE("/users/:id", func(c *gin.Context) { c.Set("user_id", myID); c.Next() }, h.DeleteUser)
@@ -442,6 +445,50 @@ func TestDeleteUser_Success(t *testing.T) {
 
 	if w.Code != http.StatusNoContent {
 		t.Fatalf("status = %d; want %d; body = %s", w.Code, http.StatusNoContent, w.Body.String())
+	}
+}
+
+func TestDeleteUser_CannotDeleteTeacher(t *testing.T) {
+	myID := uuid.New()
+	targetID := uuid.New()
+	repo := &mockRepo{
+		GetByIDFn: func(ctx context.Context, id uuid.UUID) (*User, error) {
+			return &User{ID: id, Role: RoleTeacher}, nil
+		},
+	}
+	h := NewHandler(repo, "s", "")
+
+	r := gin.New()
+	r.DELETE("/users/:id", func(c *gin.Context) { c.Set("user_id", myID); c.Next() }, h.DeleteUser)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/users/"+targetID.String(), nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("status = %d; want %d; body = %s", w.Code, http.StatusForbidden, w.Body.String())
+	}
+}
+
+func TestDeleteUser_CannotDeleteAdmin(t *testing.T) {
+	myID := uuid.New()
+	targetID := uuid.New()
+	repo := &mockRepo{
+		GetByIDFn: func(ctx context.Context, id uuid.UUID) (*User, error) {
+			return &User{ID: id, Role: RoleAdministrator}, nil
+		},
+	}
+	h := NewHandler(repo, "s", "")
+
+	r := gin.New()
+	r.DELETE("/users/:id", func(c *gin.Context) { c.Set("user_id", myID); c.Next() }, h.DeleteUser)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/users/"+targetID.String(), nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("status = %d; want %d; body = %s", w.Code, http.StatusForbidden, w.Body.String())
 	}
 }
 
@@ -792,5 +839,122 @@ func TestAdminGetActivity_Success(t *testing.T) {
 	json.Unmarshal(w.Body.Bytes(), &list)
 	if len(list) != 2 {
 		t.Fatalf("len = %d; want 2", len(list))
+	}
+}
+
+// ==================== ChangePassword ====================
+
+func TestChangePassword_Success(t *testing.T) {
+	uid := uuid.New()
+	hash, _ := bcrypt.GenerateFromPassword([]byte("oldpass1"), bcrypt.MinCost)
+	repo := &mockRepo{
+		GetByIDFn: func(ctx context.Context, id uuid.UUID) (*User, error) {
+			return &User{ID: id, Login: "user1", Role: RoleStudent}, nil
+		},
+		GetByLoginFn: func(ctx context.Context, login string) (*UserWithPassword, error) {
+			return &UserWithPassword{
+				User:         User{ID: uid, Login: login, Role: RoleStudent, CreatedAt: time.Now()},
+				PasswordHash: string(hash),
+			}, nil
+		},
+	}
+	h := NewHandler(repo, "test-secret", "")
+	w, c := jsonRequest(http.MethodPost, "/auth/change-password", ChangePasswordRequest{
+		CurrentPassword: "oldpass1",
+		NewPassword:     "newpass1",
+	})
+	c.Set("user_id", uid)
+
+	h.ChangePassword(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d; want %d; body = %s", w.Code, http.StatusOK, w.Body.String())
+	}
+	resp := parseJSON(w)
+	if resp["token"] == nil || resp["token"] == "" {
+		t.Fatal("expected token in response")
+	}
+}
+
+func TestChangePassword_Unauthorized(t *testing.T) {
+	h := NewHandler(&mockRepo{}, "test-secret", "")
+	w, c := jsonRequest(http.MethodPost, "/auth/change-password", ChangePasswordRequest{
+		CurrentPassword: "oldpass1",
+		NewPassword:     "newpass1",
+	})
+	// no user_id set in context
+
+	h.ChangePassword(c)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d; want %d", w.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestChangePassword_NewPasswordTooShort(t *testing.T) {
+	uid := uuid.New()
+	h := NewHandler(&mockRepo{}, "test-secret", "")
+	w, c := jsonRequest(http.MethodPost, "/auth/change-password", ChangePasswordRequest{
+		CurrentPassword: "oldpass1",
+		NewPassword:     "abc",
+	})
+	c.Set("user_id", uid)
+
+	h.ChangePassword(c)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d; want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestChangePassword_NewPasswordTooLong(t *testing.T) {
+	uid := uuid.New()
+	h := NewHandler(&mockRepo{}, "test-secret", "")
+	long := make([]byte, 73)
+	for i := range long {
+		long[i] = 'a'
+	}
+	w, c := jsonRequest(http.MethodPost, "/auth/change-password", ChangePasswordRequest{
+		CurrentPassword: "oldpass1",
+		NewPassword:     string(long),
+	})
+	c.Set("user_id", uid)
+
+	h.ChangePassword(c)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d; want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestChangePassword_WrongCurrentPassword(t *testing.T) {
+	uid := uuid.New()
+	hash, _ := bcrypt.GenerateFromPassword([]byte("correctpass"), bcrypt.MinCost)
+	repo := &mockRepo{
+		GetByIDFn: func(ctx context.Context, id uuid.UUID) (*User, error) {
+			return &User{ID: id, Login: "user1", Role: RoleStudent}, nil
+		},
+		GetByLoginFn: func(ctx context.Context, login string) (*UserWithPassword, error) {
+			return &UserWithPassword{
+				User:         User{ID: uid, Login: login, Role: RoleStudent, CreatedAt: time.Now()},
+				PasswordHash: string(hash),
+			}, nil
+		},
+	}
+	h := NewHandler(repo, "test-secret", "")
+	w, c := jsonRequest(http.MethodPost, "/auth/change-password", ChangePasswordRequest{
+		CurrentPassword: "wrongpass",
+		NewPassword:     "newpass1",
+	})
+	c.Set("user_id", uid)
+
+	h.ChangePassword(c)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d; want %d; body = %s", w.Code, http.StatusUnauthorized, w.Body.String())
+	}
+	resp := parseJSON(w)
+	if resp["error"] != "current password is incorrect" {
+		t.Fatalf("error = %v; want 'current password is incorrect'", resp["error"])
 	}
 }

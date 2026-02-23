@@ -93,6 +93,9 @@ export const ru = {
     deleteStep: 'Удалить шаг',
     stepContentLabel: 'Контент (Markdown)',
     tocTitle: 'Урок',
+    tocAria: 'Содержание',
+    tocNavAria: 'Навигация по урокам',
+    tocResizeAria: 'Изменить ширину содержания',
     illustration: 'Иллюстрация',
     steps: 'Шаги',
     checklist: 'Чек-лист',
@@ -172,6 +175,8 @@ export const ru = {
   },
   errors: {
     somethingWrong: 'Что-то пошло не так',
+    loadFailed: 'Не удалось загрузить данные',
+    historyLoadFailed: 'Не удалось загрузить историю чата',
   },
   confirm: {
     cancel: 'Отмена',

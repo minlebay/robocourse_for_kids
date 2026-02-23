@@ -31,10 +31,11 @@ function RoleBadge({ role }: { role: string }) {
 }
 
 function StatusDot({ blocked }: { blocked: boolean }) {
+  const { t } = useTranslation()
   return (
     <span
       className="status-dot"
-      title={blocked ? 'Заблокирован' : 'Активен'}
+      title={blocked ? t('admin.statusBlocked') : t('admin.statusActive')}
       style={{ backgroundColor: blocked ? '#ef4444' : '#10b981' }}
     />
   )
@@ -82,6 +83,7 @@ export function UserTable({ users, loading, currentUserId, onBlock, onDelete, on
                     type="button"
                     className="action-btn"
                     title={isBlocked ? t('admin.unblock') : t('admin.block')}
+                    aria-label={isBlocked ? t('admin.unblock') : t('admin.block')}
                     disabled={isSelf}
                     onClick={() => onBlock(u.id, !isBlocked)}
                   >
@@ -91,6 +93,7 @@ export function UserTable({ users, loading, currentUserId, onBlock, onDelete, on
                     type="button"
                     className="action-btn"
                     title={t('admin.resetPassword')}
+                    aria-label={t('admin.resetPassword')}
                     onClick={() => onResetPassword(u.id)}
                   >
                     🔑
@@ -99,6 +102,7 @@ export function UserTable({ users, loading, currentUserId, onBlock, onDelete, on
                     type="button"
                     className="action-btn action-btn-danger"
                     title={t('admin.delete')}
+                    aria-label={t('admin.delete')}
                     disabled={isSelf}
                     onClick={() => setDeleteTarget(u)}
                   >

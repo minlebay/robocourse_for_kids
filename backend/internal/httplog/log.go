@@ -17,3 +17,10 @@ func LogWarn(c *gin.Context, msg string) {
 	rid, _ := c.Get("request_id")
 	slog.Warn(msg, "request_id", rid)
 }
+
+// LogAudit logs a security-relevant action for audit trail purposes.
+// Use for any destructive or privileged operation (delete, block, password reset, etc.).
+func LogAudit(c *gin.Context, action string, args ...any) {
+	rid, _ := c.Get("request_id")
+	slog.Info("audit", append([]any{"action", action, "request_id", rid}, args...)...)
+}

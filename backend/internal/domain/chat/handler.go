@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"learn_kids/backend/internal/httplog"
 	"learn_kids/backend/internal/middleware"
+	"learn_kids/backend/internal/sanitize"
 )
 
 const geminiAPIURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
@@ -108,6 +109,11 @@ func (h *Handler) Chat(c *gin.Context) {
 	}
 	if len(req.Message) > maxMessageText {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("сообщение слишком длинное (максимум %d символов)", maxMessageText)})
+		return
+	}
+	req.Message = sanitize.ChatMessage(req.Message)
+	if req.Message == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "сообщение не может быть пустым"})
 		return
 	}
 

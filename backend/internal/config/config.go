@@ -34,6 +34,9 @@ func Load() (*Config, error) {
 	}
 	frontendOrigin := os.Getenv("FRONTEND_ORIGIN")
 	if frontendOrigin == "" {
+		if os.Getenv("APP_ENV") == "production" {
+			slog.Warn("FRONTEND_ORIGIN is not set in production — defaulting to localhost, CORS may block requests")
+		}
 		frontendOrigin = "http://localhost:5173"
 	}
 	geminiAPIKey := os.Getenv("GEMINI_API_KEY")

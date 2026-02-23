@@ -81,6 +81,8 @@ export function LedBlinkSimulator() {
     loopRef.current = true
 
     let iter = 0
+    // Ограничение числа итераций цикла в симуляторе — не даёт
+    // бесконечному while True зависнуть в браузере.
     const maxIter = 20
 
     const runNext = (idx: number) => {

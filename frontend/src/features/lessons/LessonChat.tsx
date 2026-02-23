@@ -38,10 +38,12 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingHistory, setLoadingHistory] = useState(true)
+  const [historyError, setHistoryError] = useState(false)
   const [error, setError] = useState('')
   const [isRecording, setIsRecording] = useState(false)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const transcriptRef = useRef('')
+  const sendingRef = useRef(false)
   const speechLang = i18n.language === 'en' ? 'en-US' : 'ru-RU'
 
   useEffect(() => {
@@ -49,6 +51,7 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
       setLoadingHistory(false)
       return
     }
+    setHistoryError(false)
     chatApi
       .getHistory(lessonId)
       .then((res) =>
@@ -56,7 +59,10 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
           (res.messages || []).map((m, i) => ({ ...m, id: m.id ?? `hist-${i}-${m.role}` }))
         )
       )
-      .catch(() => setMessages([]))
+      .catch(() => {
+        setMessages([])
+        setHistoryError(true)
+      })
       .finally(() => setLoadingHistory(false))
   }, [user, lessonId])
 
@@ -82,14 +88,16 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
 
   const send = useCallback(
     async (text: string) => {
+      if (sendingRef.current || loading) return
       const trimmed = text.trim()
-      if (!trimmed || loading) return
+      if (!trimmed) return
       const msgErr = validateChatMessage(text)
       if (msgErr) {
         setError(t(msgErr.key, msgErr.params as Record<string, string | number>))
         return
       }
       setError('')
+      sendingRef.current = true
       const userMsgId = `user-${Date.now()}`
       setMessages((prev) => [...prev, { role: 'user', text: trimmed, id: userMsgId }])
       setInput('')
@@ -105,6 +113,7 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
         setMessages((prev) => prev.slice(0, -1))
       } finally {
         setLoading(false)
+        sendingRef.current = false
       }
     },
     [lessonId, loading, t]
@@ -194,18 +203,21 @@ export function LessonChat({ lessonId }: { lessonId: string }) {
         {loadingHistory && (
           <p className="lesson-chat-placeholder">{t('chat.loadingHistory')}</p>
         )}
+        {!loadingHistory && historyError && (
+          <p className="lesson-chat-error">{t('errors.historyLoadFailed')}</p>
+        )}
         {!loadingHistory && messages.length === 0 && !user && (
           <p className="lesson-chat-placeholder">
             {t('chat.loginToChat')}
           </p>
         )}
-        {!loadingHistory && messages.length === 0 && user && (
+        {!loadingHistory && messages.length === 0 && user && !historyError && (
           <p className="lesson-chat-placeholder">
             {t('chat.placeholder')}
           </p>
         )}
         {messages.map((m) => (
-          <div key={m.id ?? m.role + m.text.slice(0, 20)} className={`lesson-chat-msg lesson-chat-msg-${m.role}`}>
+          <div key={m.id} className={`lesson-chat-msg lesson-chat-msg-${m.role}`}>
             <span className="lesson-chat-msg-role">{m.role === 'user' ? t('chat.you') : t('chat.assistant')}</span>
             <div className="lesson-chat-msg-text">{m.text}</div>
           </div>

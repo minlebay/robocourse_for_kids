@@ -1,6 +1,9 @@
 package sanitize
 
 import (
+	"strings"
+	"unicode"
+
 	"github.com/microcosm-cc/bluemonday"
 )
 
@@ -19,4 +22,20 @@ func LessonContent(s string) string {
 // Description removes HTML from short text (module/lesson description). Use before storing in DB.
 func Description(s string) string {
 	return strictPolicy.Sanitize(s)
+}
+
+// ChatMessage strips null bytes and ASCII control characters from a user chat message,
+// preserving newlines and tabs which are legitimate in conversational text.
+// Use before storing and before sending to external AI APIs.
+func ChatMessage(s string) string {
+	s = strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\t' {
+			return r
+		}
+		if unicode.IsControl(r) {
+			return -1 // drop
+		}
+		return r
+	}, s)
+	return strings.TrimSpace(s)
 }

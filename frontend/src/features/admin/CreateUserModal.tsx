@@ -48,9 +48,9 @@ export function CreateUserModal({ onClose, onCreate }: CreateUserModalProps) {
 
   return (
     <div className="temp-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="create-user-title">
-      <div className="temp-modal" style={{ maxWidth: 480 }}>
+      <div className="temp-modal temp-modal--wide">
         <h2 id="create-user-title" className="temp-modal-title">{t('admin.createTitle')}</h2>
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <form onSubmit={handleSubmit} className="admin-form-body">
           <div className="form-group">
             <label htmlFor="cu-login">{t('admin.loginLabel')}</label>
             <input
@@ -61,7 +61,8 @@ export function CreateUserModal({ onClose, onCreate }: CreateUserModalProps) {
               required
               minLength={3}
               maxLength={50}
-              style={{ width: '100%', padding: '0.5rem 0.75rem', font: 'inherit', background: 'var(--glass-bg)', color: 'var(--text)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)' }}
+              autoComplete="username"
+              className="admin-form-control"
             />
           </div>
           <div className="form-group">
@@ -73,21 +74,21 @@ export function CreateUserModal({ onClose, onCreate }: CreateUserModalProps) {
               onChange={(e) => setName(e.target.value)}
               required
               maxLength={100}
-              style={{ width: '100%', padding: '0.5rem 0.75rem', font: 'inherit', background: 'var(--glass-bg)', color: 'var(--text)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)' }}
+              className="admin-form-control"
             />
           </div>
           <div className="form-group">
             <label htmlFor="cu-password">{t('admin.passwordLabel')}</label>
             <input
               id="cu-password"
-              type="text"
+              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
               maxLength={72}
-              autoComplete="off"
-              style={{ width: '100%', padding: '0.5rem 0.75rem', font: 'inherit', background: 'var(--glass-bg)', color: 'var(--text)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)' }}
+              autoComplete="new-password"
+              className="admin-form-control"
             />
           </div>
           <div className="form-group">
@@ -96,7 +97,7 @@ export function CreateUserModal({ onClose, onCreate }: CreateUserModalProps) {
               id="cu-role"
               value={role}
               onChange={(e) => setRole(e.target.value as 'student' | 'teacher')}
-              style={{ width: '100%', padding: '0.5rem 0.75rem', font: 'inherit', background: 'var(--glass-bg)', color: 'var(--text)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)' }}
+              className="admin-form-control"
             >
               <option value="student">{t('admin.roleStudent')}</option>
               <option value="teacher">{t('admin.roleTeacher')}</option>
@@ -110,7 +111,7 @@ export function CreateUserModal({ onClose, onCreate }: CreateUserModalProps) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               maxLength={255}
-              style={{ width: '100%', padding: '0.5rem 0.75rem', font: 'inherit', background: 'var(--glass-bg)', color: 'var(--text)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)' }}
+              className="admin-form-control"
             />
           </div>
           {error && (

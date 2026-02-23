@@ -87,7 +87,12 @@ func RequireTeacher() gin.HandlerFunc {
 // Must be used after RequireAuth.
 func RequireAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		role, _ := c.Get("user_role")
+		role, exists := c.Get("user_role")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			c.Abort()
+			return
+		}
 		if role != users.RoleAdministrator {
 			c.JSON(http.StatusForbidden, gin.H{"error": "admin access required"})
 			c.Abort()

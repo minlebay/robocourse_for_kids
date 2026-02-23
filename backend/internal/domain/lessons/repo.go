@@ -3,8 +3,6 @@ package lessons
 import (
 	"context"
 	"errors"
-	"strconv"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -351,29 +349,25 @@ func (r *Repo) UpdateLesson(ctx context.Context, id uuid.UUID, title, descriptio
 	}
 	defer tx.Rollback(ctx)
 
+	if title != nil && *title == "" {
+		return nil, errors.New("title must not be empty")
+	}
 	if title != nil || description != nil {
-		if title != nil && *title == "" {
-			return nil, errors.New("title must not be empty")
-		}
-		updates := []string{}
-		args := []interface{}{id}
-		pos := 2
+		var titleVal, descVal interface{}
 		if title != nil {
-			updates = append(updates, "title = $"+strconv.Itoa(pos))
-			args = append(args, *title)
-			pos++
+			titleVal = *title
 		}
 		if description != nil {
-			updates = append(updates, "description = $"+strconv.Itoa(pos))
-			args = append(args, *description)
-			pos++
+			descVal = *description
 		}
-		if len(updates) > 0 {
-			query := "UPDATE lessons SET " + strings.Join(updates, ", ") + " WHERE id = $1"
-			_, err = tx.Exec(ctx, query, args...)
-			if err != nil {
-				return nil, err
-			}
+		_, err = tx.Exec(ctx,
+			`UPDATE lessons SET
+				title       = COALESCE($2, title),
+				description = COALESCE($3, description)
+			WHERE id = $1`,
+			id, titleVal, descVal)
+		if err != nil {
+			return nil, err
 		}
 	}
 	if steps != nil {

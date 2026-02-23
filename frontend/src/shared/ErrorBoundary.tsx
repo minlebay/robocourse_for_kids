@@ -10,6 +10,8 @@ type Props = {
 type State = {
   hasError: boolean
   error: Error | null
+  /** Инкрементируется при retry, что форсирует полный ремаунт дочерних компонентов. */
+  resetKey: number
 }
 
 function ErrorFallback({
@@ -32,9 +34,9 @@ function ErrorFallback({
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false, error: null }
+  state: State = { hasError: false, error: null, resetKey: 0 }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error }
   }
 
@@ -52,10 +54,25 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <ErrorFallback
           message={this.state.error.message}
-          onRetry={() => this.setState({ hasError: false, error: null })}
+          onRetry={() =>
+            this.setState((prev) => ({
+              hasError: false,
+              error: null,
+              resetKey: prev.resetKey + 1,
+            }))
+          }
         />
       )
     }
-    return this.props.children
+    // key на обёртке гарантирует полный ремаунт детей при каждом retry
+    return (
+      <ChildrenWrapper key={this.state.resetKey}>
+        {this.props.children}
+      </ChildrenWrapper>
+    )
   }
+}
+
+function ChildrenWrapper({ children }: { children: ReactNode }) {
+  return <>{children}</>
 }

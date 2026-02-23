@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import styles from './PageWithToc.module.css'
 
 const STORAGE_KEY = 'learn-kids-toc-width'
@@ -36,6 +37,7 @@ function getInitialTocWidth(): number {
 }
 
 export function PageWithToc({ title, items, children, containerClassName }: PageWithTocProps) {
+  const { t } = useTranslation()
   const [width, setWidth] = useState(getInitialTocWidth)
   const [isDragging, setIsDragging] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
@@ -90,11 +92,11 @@ export function PageWithToc({ title, items, children, containerClassName }: Page
         ref={sidebarRef}
         className={styles.sidebar}
         style={{ width: `${width}px` }}
-        aria-label="Содержание"
+        aria-label={t('lesson.tocAria')}
       >
         <div className={styles.sidebarInner}>
           <h2 className={styles.title}>{title}</h2>
-          <nav className={styles.nav} aria-label="Навигация по урокам">
+          <nav className={styles.nav} aria-label={t('lesson.tocNavAria')}>
             <ul className={styles.list}>
               {items.map((item) => (
                 <li key={item.id} className={styles.item}>
@@ -121,8 +123,8 @@ export function PageWithToc({ title, items, children, containerClassName }: Page
         aria-valuenow={width}
         aria-valuemin={MIN_WIDTH}
         aria-valuemax={MAX_WIDTH}
-        aria-label="Изменить ширину содержания"
-        title="Изменить ширину содержания"
+        aria-label={t('lesson.tocResizeAria')}
+        title={t('lesson.tocResizeAria')}
       />
       <div className={styles.main}>{children}</div>
     </div>

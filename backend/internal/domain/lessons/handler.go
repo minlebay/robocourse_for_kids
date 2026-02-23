@@ -200,11 +200,13 @@ func (h *Handler) CreateLesson(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "lesson_type must be theory, practice, or project"})
 		return
 	}
-	var steps []LessonStep
-	for _, s := range req.Steps {
-		if s.Title != "" {
-			steps = append(steps, s)
+	steps := make([]LessonStep, 0, len(req.Steps))
+	for i, s := range req.Steps {
+		if s.Title == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "step " + strconv.Itoa(i+1) + " title must not be empty"})
+			return
 		}
+		steps = append(steps, s)
 	}
 	if len(steps) > MaxStepsPerLesson {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("at most %d steps per lesson", MaxStepsPerLesson)})

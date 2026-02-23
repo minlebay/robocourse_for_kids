@@ -44,7 +44,7 @@ func (r *Repo) ListByLesson(ctx context.Context, lessonID uuid.UUID) ([]Comment,
 	}
 	defer rows.Close()
 
-	var list []Comment
+	list := []Comment{}
 	for rows.Next() {
 		var c Comment
 		if err := rows.Scan(&c.ID, &c.LessonID, &c.UserID, &c.UserName, &c.Text, &c.CreatedAt); err != nil {

@@ -93,6 +93,9 @@ export const en = {
     deleteStep: 'Delete step',
     stepContentLabel: 'Content (Markdown)',
     tocTitle: 'Lesson',
+    tocAria: 'Table of contents',
+    tocNavAria: 'Lesson navigation',
+    tocResizeAria: 'Resize table of contents',
     illustration: 'Illustration',
     steps: 'Steps',
     checklist: 'Checklist',
@@ -172,6 +175,8 @@ export const en = {
   },
   errors: {
     somethingWrong: 'Something went wrong',
+    loadFailed: 'Failed to load data',
+    historyLoadFailed: 'Failed to load chat history',
   },
   confirm: {
     cancel: 'Cancel',
