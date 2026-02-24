@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { isSafeHttpUrl } from '../../shared/url'
-import { getYouTubeVideoId } from './YouTubeEmbed'
+import { getYouTubeVideoId } from './youtubeUtils'
 
 type MarkdownStepEditorProps = {
   value: string

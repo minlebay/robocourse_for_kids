@@ -1,5 +1,5 @@
-import { Component, type ErrorInfo, type ReactNode } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Component, Fragment, type ErrorInfo, type ReactNode } from 'react'
+import { ErrorFallback } from './ErrorFallback'
 
 type Props = {
   children: ReactNode
@@ -12,25 +12,6 @@ type State = {
   error: Error | null
   /** Инкрементируется при retry, что форсирует полный ремаунт дочерних компонентов. */
   resetKey: number
-}
-
-function ErrorFallback({
-  message,
-  onRetry,
-}: {
-  message: string
-  onRetry: () => void
-}) {
-  const { t } = useTranslation()
-  return (
-    <div className="error-boundary" role="alert">
-      <h2>{t('errors.somethingWrong')}</h2>
-      <p className="error-boundary-message">{message}</p>
-      <button type="button" className="button-primary" onClick={onRetry}>
-        {t('common.retry')}
-      </button>
-    </div>
-  )
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -64,15 +45,7 @@ export class ErrorBoundary extends Component<Props, State> {
         />
       )
     }
-    // key на обёртке гарантирует полный ремаунт детей при каждом retry
-    return (
-      <ChildrenWrapper key={this.state.resetKey}>
-        {this.props.children}
-      </ChildrenWrapper>
-    )
+    // key на Fragment гарантирует полный ремаунт детей при каждом retry
+    return <Fragment key={this.state.resetKey}>{this.props.children}</Fragment>
   }
-}
-
-function ChildrenWrapper({ children }: { children: ReactNode }) {
-  return <>{children}</>
 }

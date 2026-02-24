@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { admin as adminApi } from '../../shared/api'
 import type { AdminStats, ActivityItem, User, AdminCreateUserRequest } from '../../shared/types'
 import { useAuth } from '../auth/AuthContext'
+import { ErrorBoundary } from '../../shared/ErrorBoundary'
 import { StatsCards } from './StatsCards'
 import { ActivityFeed } from './ActivityFeed'
 import { TempPasswordModal } from './TempPasswordModal'
@@ -108,69 +109,71 @@ export function AdminPage() {
   }
 
   return (
-    <div className="admin-page">
-      <h1>{t('admin.title')}</h1>
+    <ErrorBoundary>
+      <div className="admin-page">
+        <h1>{t('admin.title')}</h1>
 
-      <StatsCards stats={stats} loading={statsLoading} />
+        <StatsCards stats={stats} loading={statsLoading} />
 
-      {loadError && (
-        <p className="error" role="alert" style={{ marginBottom: '1rem' }}>
-          {loadError}
-          <button
-            type="button"
-            className="button-secondary"
-            style={{ marginLeft: '1rem', padding: '0.2rem 0.75rem', fontSize: '0.85rem' }}
-            onClick={() => { setLoadError(''); loadStats(); loadActivity(); loadUsers() }}
-          >
-            {t('common.retry')}
-          </button>
-        </p>
-      )}
-
-      {actionError && (
-        <p className="error" role="alert" style={{ marginBottom: '1rem' }}>
-          {actionError}
-        </p>
-      )}
-
-      <div className="admin-main">
-        <div className="admin-users-panel">
-          <div className="admin-header">
-            <h2>{t('admin.usersTitle')}</h2>
+        {loadError && (
+          <p className="error" role="alert" style={{ marginBottom: '1rem' }}>
+            {loadError}
             <button
               type="button"
-              className="button-primary"
-              onClick={() => setShowCreateModal(true)}
+              className="button-secondary"
+              style={{ marginLeft: '1rem', padding: '0.2rem 0.75rem', fontSize: '0.85rem' }}
+              onClick={() => { setLoadError(''); loadStats(); loadActivity(); loadUsers() }}
             >
-              + {t('admin.createUser')}
+              {t('common.retry')}
             </button>
+          </p>
+        )}
+
+        {actionError && (
+          <p className="error" role="alert" style={{ marginBottom: '1rem' }}>
+            {actionError}
+          </p>
+        )}
+
+        <div className="admin-main">
+          <div className="admin-users-panel">
+            <div className="admin-header">
+              <h2>{t('admin.usersTitle')}</h2>
+              <button
+                type="button"
+                className="button-primary"
+                onClick={() => setShowCreateModal(true)}
+              >
+                + {t('admin.createUser')}
+              </button>
+            </div>
+            <UserTable
+              users={users}
+              loading={usersLoading}
+              currentUserId={user?.id ?? ''}
+              onBlock={handleBlock}
+              onDelete={handleDelete}
+              onResetPassword={handleResetPassword}
+            />
           </div>
-          <UserTable
-            users={users}
-            loading={usersLoading}
-            currentUserId={user?.id ?? ''}
-            onBlock={handleBlock}
-            onDelete={handleDelete}
-            onResetPassword={handleResetPassword}
-          />
+
+          <ActivityFeed items={activity} loading={activityLoading} />
         </div>
 
-        <ActivityFeed items={activity} loading={activityLoading} />
+        {showCreateModal && (
+          <CreateUserModal
+            onClose={() => setShowCreateModal(false)}
+            onCreate={handleCreateUser}
+          />
+        )}
+
+        {tempPassword !== null && (
+          <TempPasswordModal
+            password={tempPassword}
+            onClose={() => setTempPassword(null)}
+          />
+        )}
       </div>
-
-      {showCreateModal && (
-        <CreateUserModal
-          onClose={() => setShowCreateModal(false)}
-          onCreate={handleCreateUser}
-        />
-      )}
-
-      {tempPassword !== null && (
-        <TempPasswordModal
-          password={tempPassword}
-          onClose={() => setTempPassword(null)}
-        />
-      )}
-    </div>
+    </ErrorBoundary>
   )
 }

@@ -2,6 +2,12 @@ import type { LessonStatus, ReactionType, AdminCreateUserRequest, AdminStats, Ac
 
 const API_BASE = '/api/v1'
 const RETURN_URL_KEY = 'learn_kids_return_url'
+const REQUEST_TIMEOUT_MS = 30_000
+
+interface ErrorResponse {
+  error?: string
+  message?: string
+}
 
 function getToken(): string | null {
   return localStorage.getItem('token')
@@ -51,7 +57,19 @@ async function request(path: string, options: RequestInit = {}): Promise<Respons
   if (token) {
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
   }
-  return fetch(API_BASE + path, { ...options, headers })
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  try {
+    return await fetch(API_BASE + path, { ...options, headers, signal: controller.signal })
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error('Запрос превысил допустимое время ожидания. Проверьте соединение.')
+    }
+    throw err
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }
 
 const NEW_TOKEN_HEADER = 'X-New-Token'
@@ -67,12 +85,9 @@ async function handleResponse<T>(res: Response, expectBody: boolean): Promise<T>
     throw new Error('Слишком много запросов. Подожди немного и попробуй снова.')
   }
   if (res.status === 204) return undefined as T
-  const data = await res.json().catch(() => null)
+  const data = await res.json().catch(() => null) as ErrorResponse | null
   if (!res.ok) {
-    const msg =
-      data && (typeof data.error === 'string' || typeof data.message === 'string')
-        ? String(data.error ?? data.message)
-        : 'Ошибка сервера. Попробуйте позже.'
+    const msg = data?.error ?? data?.message ?? 'Ошибка сервера. Попробуйте позже.'
     throw new Error(msg)
   }
   return expectBody ? (data as T) : (undefined as T)
@@ -116,11 +131,8 @@ export const auth = {
     })
     if (!res.ok) {
       if (res.status === 401) handle401()
-      const data = await res.json().catch(() => null)
-      const msg =
-        data && (typeof data.error === 'string' || typeof data.message === 'string')
-          ? String(data.error ?? data.message)
-          : 'Ошибка сервера. Попробуйте позже.'
+      const data = await res.json().catch(() => null) as ErrorResponse | null
+      const msg = data?.error ?? data?.message ?? 'Ошибка сервера. Попробуйте позже.'
       throw new Error(msg)
     }
   },

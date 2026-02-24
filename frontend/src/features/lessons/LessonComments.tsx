@@ -63,7 +63,7 @@ export function LessonComments({ lessonId }: { lessonId: string }) {
         .catch((err) => setError(err.message))
         .finally(() => setSubmitting(false))
     },
-    [lessonId, text, user, submitting]
+    [lessonId, text, user, submitting, t]
   )
 
   const handleDelete = useCallback(

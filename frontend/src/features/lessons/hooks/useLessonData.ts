@@ -8,28 +8,51 @@ export function useLessonData(lessonId: string | undefined, isAuthenticated: boo
   const [progress, setProgress] = useState<UserProgress | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [refetchKey, setRefetchKey] = useState(0)
 
-  const load = useCallback(() => {
-    if (!lessonId) return
+  // Сброс состояния при смене урока во время рендера (паттерн React «adjusting state based on props»).
+  // Избегает setState в useEffect для синхронных сбросов.
+  const [prevLessonId, setPrevLessonId] = useState(lessonId)
+  if (lessonId !== prevLessonId) {
+    setPrevLessonId(lessonId)
     setLoading(true)
+    setLesson(null)
+    setModule(null)
+    setProgress(null)
+    setError('')
+  }
+
+  useEffect(() => {
+    if (!lessonId) return
+    let cancelled = false
+
+    // Все setState внутри асинхронных колбэков (.then/.catch/.finally) — не синхронно в теле эффекта
     Promise.all([
       lessonsApi.get(lessonId),
       isAuthenticated ? progressApi.get().catch(() => null) : Promise.resolve(null),
     ])
       .then(([l, p]) => {
+        if (cancelled) return
         setLesson(l)
-        setProgress(p || null)
+        setProgress(p ?? null)
         if (l?.module_id) {
-          modulesApi.get(l.module_id).then(setModule).catch(() => setModule(null))
+          modulesApi
+            .get(l.module_id)
+            .then((m) => { if (!cancelled) setModule(m) })
+            .catch(() => { if (!cancelled) setModule(null) })
         }
       })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false))
-  }, [lessonId, isAuthenticated])
+      .catch((err) => { if (!cancelled) setError(err.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
 
-  useEffect(() => {
-    load()
-  }, [load])
+    return () => { cancelled = true }
+  }, [lessonId, isAuthenticated, refetchKey])
+
+  const load = useCallback(() => {
+    setLoading(true)
+    setError('')
+    setRefetchKey((k) => k + 1)
+  }, [])
 
   return { lesson, module_, progress, loading, error, load, setLesson, setProgress, setError }
 }
