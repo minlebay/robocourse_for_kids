@@ -2,7 +2,9 @@ package lessons
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -218,35 +220,60 @@ func (r *Repo) listLessonsByModuleID(ctx context.Context, moduleID uuid.UUID) ([
 	return list, rows.Err()
 }
 
+// GetLessonByID loads a lesson together with its steps, materials, tags and
+// checklist in a single database round-trip using correlated subqueries.
 func (r *Repo) GetLessonByID(ctx context.Context, id uuid.UUID) (*Lesson, error) {
-	row := r.pool.QueryRow(ctx, `
-		SELECT id, module_id, title, description, lesson_type, sort_order, created_at
-		FROM lessons WHERE id = $1`, id)
+	const q = `
+		SELECT
+			l.id, l.module_id, l.title, l.description, l.lesson_type, l.sort_order, l.created_at,
+			(SELECT COALESCE(json_agg(s ORDER BY s.sort_order), '[]')
+			 FROM (SELECT id, lesson_id, title, content, sort_order
+			       FROM lesson_steps WHERE lesson_id = l.id) s),
+			(SELECT COALESCE(json_agg(m), '[]')
+			 FROM (SELECT id, lesson_id, kind, url_or_path, title
+			       FROM lesson_materials WHERE lesson_id = l.id) m),
+			(SELECT COALESCE(json_agg(t.tag ORDER BY t.tag), '[]')
+			 FROM lesson_tags t WHERE t.lesson_id = l.id),
+			(SELECT COALESCE(json_agg(c ORDER BY c.sort_order), '[]')
+			 FROM (SELECT id, lesson_id, title, sort_order
+			       FROM checklist_items WHERE lesson_id = l.id) c)
+		FROM lessons l
+		WHERE l.id = $1`
+
 	var l Lesson
 	var desc *string
-	err := row.Scan(&l.ID, &l.ModuleID, &l.Title, &desc, &l.LessonType, &l.SortOrder, &l.CreatedAt)
+	var stepsJSON, materialsJSON, tagsJSON, checklistJSON []byte
+
+	err := r.pool.QueryRow(ctx, q, id).Scan(
+		&l.ID, &l.ModuleID, &l.Title, &desc,
+		&l.LessonType, &l.SortOrder, &l.CreatedAt,
+		&stepsJSON, &materialsJSON, &tagsJSON, &checklistJSON,
+	)
 	if err != nil {
 		return nil, err
 	}
 	if desc != nil {
 		l.Description = *desc
 	}
-	l.Steps, err = r.getStepsByLessonID(ctx, id)
-	if err != nil {
-		return nil, err
+
+	l.Steps = []LessonStep{}
+	l.Materials = []LessonMaterial{}
+	l.Tags = []string{}
+	l.Checklist = []ChecklistItem{}
+
+	if err := json.Unmarshal(stepsJSON, &l.Steps); err != nil {
+		return nil, fmt.Errorf("parse lesson steps: %w", err)
 	}
-	l.Materials, err = r.getMaterialsByLessonID(ctx, id)
-	if err != nil {
-		return nil, err
+	if err := json.Unmarshal(materialsJSON, &l.Materials); err != nil {
+		return nil, fmt.Errorf("parse lesson materials: %w", err)
 	}
-	l.Tags, err = r.getTagsByLessonID(ctx, id)
-	if err != nil {
-		return nil, err
+	if err := json.Unmarshal(tagsJSON, &l.Tags); err != nil {
+		return nil, fmt.Errorf("parse lesson tags: %w", err)
 	}
-	l.Checklist, err = r.getChecklistByLessonID(ctx, id)
-	if err != nil {
-		return nil, err
+	if err := json.Unmarshal(checklistJSON, &l.Checklist); err != nil {
+		return nil, fmt.Errorf("parse lesson checklist: %w", err)
 	}
+
 	return &l, nil
 }
 

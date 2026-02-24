@@ -99,7 +99,7 @@ type CreateModuleRequest struct {
 func (h *Handler) CreateModule(c *gin.Context) {
 	var req CreateModuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 	if len(req.Title) > MaxTitleLength {
@@ -175,7 +175,7 @@ func (h *Handler) CreateLesson(c *gin.Context) {
 	}
 	var req CreateLessonRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 	if len(req.Title) > MaxTitleLength {
@@ -283,7 +283,7 @@ func (h *Handler) UpdateLesson(c *gin.Context) {
 	}
 	var body UpdateLessonRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 	if body.Title != nil && *body.Title == "" {

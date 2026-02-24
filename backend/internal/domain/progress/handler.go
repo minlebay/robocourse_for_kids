@@ -63,7 +63,7 @@ func (h *Handler) SetLessonProgress(c *gin.Context) {
 	}
 	var req SetProgressRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 	if req.Status != StatusNotStarted && req.Status != StatusInProgress && req.Status != StatusCompleted {

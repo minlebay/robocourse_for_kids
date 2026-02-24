@@ -31,7 +31,7 @@ export interface ActivityItem {
   id: string
   login: string
   name: string
-  role: string
+  role: 'student' | 'teacher' | 'administrator'
   created_at: string
 }
 

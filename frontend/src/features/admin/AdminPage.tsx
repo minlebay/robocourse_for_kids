@@ -29,6 +29,7 @@ export function AdminPage() {
 
   const [actionError, setActionError] = useState('')
   const [loadError, setLoadError] = useState('')
+  const [pendingAction, setPendingAction] = useState<string | null>(null)
 
   const loadUsers = useCallback(async () => {
     setUsersLoading(true)
@@ -71,32 +72,44 @@ export function AdminPage() {
   }, [loadStats, loadActivity, loadUsers])
 
   async function handleBlock(id: string, block: boolean) {
+    if (pendingAction) return
     setActionError('')
+    setPendingAction(id)
     try {
       await adminApi.blockUser(id, block)
       await loadUsers()
     } catch (err) {
       setActionError(err instanceof Error ? err.message : t('errors.somethingWrong'))
+    } finally {
+      setPendingAction(null)
     }
   }
 
   async function handleDelete(id: string) {
+    if (pendingAction) return
     setActionError('')
+    setPendingAction(id)
     try {
       await adminApi.deleteUser(id)
       await loadUsers()
     } catch (err) {
       setActionError(err instanceof Error ? err.message : t('errors.somethingWrong'))
+    } finally {
+      setPendingAction(null)
     }
   }
 
   async function handleResetPassword(id: string) {
+    if (pendingAction) return
     setActionError('')
+    setPendingAction(id)
     try {
       const { temp_password } = await adminApi.resetPassword(id)
       setTempPassword(temp_password)
     } catch (err) {
       setActionError(err instanceof Error ? err.message : t('errors.somethingWrong'))
+    } finally {
+      setPendingAction(null)
     }
   }
 
@@ -151,6 +164,7 @@ export function AdminPage() {
               users={users}
               loading={usersLoading}
               currentUserId={user?.id ?? ''}
+              pendingUserId={pendingAction}
               onBlock={handleBlock}
               onDelete={handleDelete}
               onResetPassword={handleResetPassword}

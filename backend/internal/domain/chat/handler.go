@@ -200,15 +200,25 @@ func (h *Handler) Chat(c *gin.Context) {
 	}
 	defer resp.Body.Close()
 
-	b, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
+	b, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize+1))
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
+	if len(b) > maxResponseSize {
+		rid, _ := c.Get("request_id")
+		slog.Warn("gemini response too large", "request_id", rid, "size", len(b))
+		c.JSON(http.StatusBadGateway, gin.H{"error": "AI response too large"})
+		return
+	}
 	if resp.StatusCode != http.StatusOK {
 		rid, _ := c.Get("request_id")
-		slog.Error("gemini request failed", "request_id", rid, "status", resp.StatusCode, "body", string(b))
+		bodyPreview := string(b)
+		if len(bodyPreview) > 500 {
+			bodyPreview = bodyPreview[:500]
+		}
+		slog.Error("gemini request failed", "request_id", rid, "status", resp.StatusCode, "body", bodyPreview)
 		c.JSON(http.StatusBadGateway, gin.H{"error": "AI service error"})
 		return
 	}

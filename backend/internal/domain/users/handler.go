@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"log"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"net/mail"
@@ -102,7 +103,7 @@ type RegisterRequest struct {
 func (h *Handler) RegisterUser(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
@@ -125,6 +126,7 @@ func (h *Handler) RegisterUser(c *gin.Context) {
 			return
 		}
 		if req.InviteCode != h.inviteCode {
+			slog.Warn("invalid teacher invite code attempt", "login", req.Login, "ip", c.ClientIP())
 			c.JSON(http.StatusForbidden, gin.H{"error": "invalid invite code"})
 			return
 		}
@@ -163,7 +165,7 @@ type LoginRequest struct {
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 	u, err := h.repo.GetByLogin(c.Request.Context(), req.Login)
@@ -226,7 +228,7 @@ func (h *Handler) UpdateMe(c *gin.Context) {
 	}
 	var req UpdateMeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 	if req.Theme == "" || !validThemes[req.Theme] {
@@ -322,7 +324,7 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 
 	var req ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
@@ -403,7 +405,7 @@ type AdminCreateUserRequest struct {
 func (h *Handler) AdminCreateUser(c *gin.Context) {
 	var req AdminCreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
@@ -509,7 +511,7 @@ func (h *Handler) AdminBlockUser(c *gin.Context) {
 
 	var req AdminBlockUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 

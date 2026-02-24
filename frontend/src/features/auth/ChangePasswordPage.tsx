@@ -34,18 +34,26 @@ export function ChangePasswordPage() {
     setLoading(true)
     try {
       await authApi.changePassword(currentPassword, newPassword)
-      // Refresh user data to clear must_change_password flag
-      const updatedUser = await authApi.me()
-      setUser(updatedUser)
-      setSuccess(true)
-      setTimeout(() => {
-        navigate('/', { replace: true })
-      }, 1500)
     } catch (err) {
       setError(err instanceof Error ? err.message : t('changePassword.errorCurrent'))
-    } finally {
       setLoading(false)
+      return
     }
+
+    // Пароль изменён — сбрасываем флаг оптимистично, чтобы избежать зацикленного
+    // редиректа на /change-password если последующий me() упадёт.
+    setUser((prev) => (prev ? { ...prev, must_change_password: false } : null))
+    try {
+      const updatedUser = await authApi.me()
+      setUser(updatedUser)
+    } catch {
+      // Игнорируем: флаг уже сброшен оптимистично выше
+    }
+    setSuccess(true)
+    setLoading(false)
+    setTimeout(() => {
+      navigate('/', { replace: true })
+    }, 1500)
   }
 
   return (

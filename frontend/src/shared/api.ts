@@ -124,18 +124,11 @@ export const auth = {
       method: 'PATCH',
       body: JSON.stringify({ theme }),
     }),
-  changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
-    const res = await request('/auth/change-password', {
+  changePassword: (currentPassword: string, newPassword: string): Promise<void> =>
+    apiVoid('/auth/change-password', {
       method: 'POST',
       body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
-    })
-    if (!res.ok) {
-      if (res.status === 401) handle401()
-      const data = await res.json().catch(() => null) as ErrorResponse | null
-      const msg = data?.error ?? data?.message ?? 'Ошибка сервера. Попробуйте позже.'
-      throw new Error(msg)
-    }
-  },
+    }),
 }
 
 export const modules = {

@@ -93,7 +93,7 @@ func (h *Handler) Create(c *gin.Context) {
 	}
 	var req CreateCommentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 	// Sanitize to prevent XSS when comment is rendered (plain text or HTML).

@@ -31,11 +31,16 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("JWT_SECRET must be set when APP_ENV=production")
 		}
 		jwtSecret = "dev-secret-change-in-production"
+	} else if len(jwtSecret) < 32 {
+		if os.Getenv("APP_ENV") == "production" {
+			return nil, fmt.Errorf("JWT_SECRET must be at least 32 characters in production")
+		}
+		slog.Warn("JWT_SECRET is shorter than 32 characters — use a strong secret in production")
 	}
 	frontendOrigin := os.Getenv("FRONTEND_ORIGIN")
 	if frontendOrigin == "" {
 		if os.Getenv("APP_ENV") == "production" {
-			slog.Warn("FRONTEND_ORIGIN is not set in production — defaulting to localhost, CORS may block requests")
+			return nil, fmt.Errorf("FRONTEND_ORIGIN must be set when APP_ENV=production")
 		}
 		frontendOrigin = "http://localhost:5173"
 	}

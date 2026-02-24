@@ -67,6 +67,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setTheme = useCallback(
     async (id: ThemeId) => {
+      const previous = themeId
       setThemeIdState(id)
       setStoredTheme(id)
       if (user) {
@@ -74,11 +75,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
           const updated = await authApi.updateTheme(id)
           setUser(updated)
         } catch {
-          // Сохранение в профиль не удалось, тема осталась в localStorage
+          // Сохранение в профиль не удалось — откатываем, чтобы избежать рассинхронизации
+          // между localStorage и сервером после следующего входа.
+          setThemeIdState(previous)
+          setStoredTheme(previous)
         }
       }
     },
-    [user, setUser]
+    [user, setUser, themeId]
   )
 
   const cycleTheme = useCallback(() => {

@@ -7,6 +7,7 @@ interface UserTableProps {
   users: User[]
   loading: boolean
   currentUserId: string
+  pendingUserId?: string | null
   onBlock: (id: string, block: boolean) => void
   onDelete: (id: string) => void
   onResetPassword: (id: string) => void
@@ -41,7 +42,7 @@ function StatusDot({ blocked }: { blocked: boolean }) {
   )
 }
 
-export function UserTable({ users, loading, currentUserId, onBlock, onDelete, onResetPassword }: UserTableProps) {
+export function UserTable({ users, loading, currentUserId, pendingUserId, onBlock, onDelete, onResetPassword }: UserTableProps) {
   const { t } = useTranslation()
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null)
 
@@ -66,6 +67,7 @@ export function UserTable({ users, loading, currentUserId, onBlock, onDelete, on
           {users.map((u) => {
             const isSelf = u.id === currentUserId
             const isBlocked = u.is_blocked === true
+            const isPending = pendingUserId === u.id
             return (
               <tr key={u.id} className={isBlocked ? 'user-row-blocked' : ''}>
                 <td className="user-login">@{u.login}</td>
@@ -84,7 +86,7 @@ export function UserTable({ users, loading, currentUserId, onBlock, onDelete, on
                     className="action-btn"
                     title={isBlocked ? t('admin.unblock') : t('admin.block')}
                     aria-label={isBlocked ? t('admin.unblock') : t('admin.block')}
-                    disabled={isSelf}
+                    disabled={isSelf || isPending}
                     onClick={() => onBlock(u.id, !isBlocked)}
                   >
                     {isBlocked ? '🔓' : '🚫'}
@@ -94,6 +96,7 @@ export function UserTable({ users, loading, currentUserId, onBlock, onDelete, on
                     className="action-btn"
                     title={t('admin.resetPassword')}
                     aria-label={t('admin.resetPassword')}
+                    disabled={isPending}
                     onClick={() => onResetPassword(u.id)}
                   >
                     🔑
@@ -103,7 +106,7 @@ export function UserTable({ users, loading, currentUserId, onBlock, onDelete, on
                     className="action-btn action-btn-danger"
                     title={t('admin.delete')}
                     aria-label={t('admin.delete')}
-                    disabled={isSelf}
+                    disabled={isSelf || isPending}
                     onClick={() => setDeleteTarget(u)}
                   >
                     🗑

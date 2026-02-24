@@ -5,7 +5,3 @@ ALTER TABLE users
 
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique
   ON users(email) WHERE email IS NOT NULL;
-
-UPDATE users
-SET role = 'administrator'
-WHERE login = 'admin';

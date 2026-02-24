@@ -35,7 +35,7 @@ func (h *Handler) SetLessonReaction(c *gin.Context) {
 	}
 	var req SetReactionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 	if !validReaction[req.Reaction] {
@@ -89,7 +89,7 @@ func (h *Handler) SetCommentReaction(c *gin.Context) {
 	}
 	var req SetReactionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 	if !validReaction[req.Reaction] {
