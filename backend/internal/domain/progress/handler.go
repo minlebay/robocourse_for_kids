@@ -2,10 +2,12 @@ package progress
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"learn_kids/backend/internal/httplog"
 	"learn_kids/backend/internal/middleware"
 )
@@ -69,6 +71,12 @@ func (h *Handler) SetLessonProgress(c *gin.Context) {
 		return
 	}
 	if err := h.repo.SetLessonProgress(c.Request.Context(), userID, lessonID, req.Status); err != nil {
+		var pgErr *pgconn.PgError
+		// FK violation (23503): lesson does not exist → return 404 instead of 500.
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "lesson not found"})
+			return
+		}
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return

@@ -8,4 +8,4 @@ CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique
 
 UPDATE users
 SET role = 'administrator'
-WHERE login = 'admin' OR name ILIKE '%ильшат%';
+WHERE login = 'admin';

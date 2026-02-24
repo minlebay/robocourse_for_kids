@@ -7,9 +7,10 @@ import (
 )
 
 // LogError logs err with request id from context (if set). Use when returning 5xx to client.
+// The error is passed as a structured attribute to preserve pgx error fields (Code, Detail, Constraint).
 func LogError(c *gin.Context, err error) {
 	rid, _ := c.Get("request_id")
-	slog.Error(err.Error(), "request_id", rid)
+	slog.Error("request error", "error", err, "request_id", rid)
 }
 
 // LogWarn logs a warning with request id from context (if set). Use for non-critical issues.

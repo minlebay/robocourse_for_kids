@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"log"
 	"math/big"
 	"net/http"
 	"net/mail"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -19,16 +21,18 @@ import (
 
 // Repository defines the data access interface for users.
 type Repository interface {
-	Create(ctx context.Context, login, passwordHash, name, role, email string) (*User, error)
+	Create(ctx context.Context, login, passwordHash, name, role, email string, mustChangePassword bool) (*User, error)
 	GetByLogin(ctx context.Context, login string) (*UserWithPassword, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
-	List(ctx context.Context) ([]User, error)
-	ListAll(ctx context.Context) ([]User, error)
+	GetByIDWithPassword(ctx context.Context, id uuid.UUID) (*UserWithPassword, error)
+	IsBlocked(ctx context.Context, id uuid.UUID) (bool, error)
+	List(ctx context.Context, limit, offset int) ([]User, error)
+	ListAll(ctx context.Context, limit, offset int) ([]User, error)
 	Delete(ctx context.Context, id uuid.UUID) (bool, error)
 	UpdateTheme(ctx context.Context, id uuid.UUID, theme string) error
 	BlockUser(ctx context.Context, id uuid.UUID, block bool) error
 	SetMustChangePassword(ctx context.Context, id uuid.UUID, v bool) error
-	UpdatePassword(ctx context.Context, id uuid.UUID, hash string) error
+	UpdatePasswordAndMustChange(ctx context.Context, id uuid.UUID, hash string, mustChange bool) (bool, error)
 	GetStats(ctx context.Context) (usersCount, modulesCount, lessonsCount int, err error)
 	GetActivity(ctx context.Context, limit int) ([]User, error)
 }
@@ -39,7 +43,11 @@ type Repository interface {
 var dummyHash []byte
 
 func init() {
-	dummyHash, _ = bcrypt.GenerateFromPassword([]byte("timing-attack-protection"), bcrypt.DefaultCost)
+	var err error
+	dummyHash, err = bcrypt.GenerateFromPassword([]byte("timing-attack-protection"), bcrypt.DefaultCost)
+	if err != nil {
+		log.Fatalf("users: failed to pre-compute dummy bcrypt hash: %v", err)
+	}
 }
 
 type Handler struct {
@@ -52,10 +60,35 @@ func NewHandler(repo Repository, jwtSecret, inviteCode string) *Handler {
 	return &Handler{repo: repo, jwtKey: []byte(jwtSecret), inviteCode: inviteCode}
 }
 
+// IsUserBlocked reports whether the user with the given ID is blocked.
+// Used by the Auth middleware to reject blocked users on every request.
+func (h *Handler) IsUserBlocked(ctx context.Context, id uuid.UUID) (bool, error) {
+	return h.repo.IsBlocked(ctx, id)
+}
+
 var validThemes = map[string]bool{
 	"default": true, "light": true, "cyberpunk": true,
 	"contrast-light": true, "contrast-dark": true,
 	"cream": true, "snow": true, "midnight": true, "forest": true,
+}
+
+// validateCredentials checks login/password/name lengths and returns an error message
+// suitable for returning directly to the client, or an empty string if valid.
+func validateCredentials(login, password, name string) string {
+	if len(login) < 3 || len(login) > 50 {
+		return "login must be 3-50 characters"
+	}
+	if len(password) < 6 {
+		return "password must be at least 6 characters"
+	}
+	// bcrypt silently truncates at 72 bytes
+	if len(password) > 72 {
+		return "password must be at most 72 characters"
+	}
+	if len(name) > 200 {
+		return "name must be at most 200 characters"
+	}
+	return ""
 }
 
 type RegisterRequest struct {
@@ -73,19 +106,8 @@ func (h *Handler) RegisterUser(c *gin.Context) {
 		return
 	}
 
-	// --- Validate login length ---
-	if len(req.Login) < 3 || len(req.Login) > 50 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "login must be 3-50 characters"})
-		return
-	}
-
-	// --- Validate password length (bcrypt silently truncates at 72 bytes) ---
-	if len(req.Password) < 6 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at least 6 characters"})
-		return
-	}
-	if len(req.Password) > 72 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at most 72 characters"})
+	if msg := validateCredentials(req.Login, req.Password, req.Name); msg != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 		return
 	}
 
@@ -108,18 +130,12 @@ func (h *Handler) RegisterUser(c *gin.Context) {
 		}
 	}
 
-	// --- Validate name length ---
-	if len(req.Name) > 200 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "name must be at most 200 characters"})
-		return
-	}
-
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash password"})
 		return
 	}
-	user, err := h.repo.Create(c.Request.Context(), req.Login, string(hash), req.Name, req.Role, "")
+	user, err := h.repo.Create(c.Request.Context(), req.Login, string(hash), req.Name, req.Role, "", false)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -186,8 +202,13 @@ func (h *Handler) Me(c *gin.Context) {
 		return
 	}
 	u, err := h.repo.GetByID(c.Request.Context(), uid)
-	if err != nil || u == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, u)
@@ -218,7 +239,7 @@ func (h *Handler) UpdateMe(c *gin.Context) {
 		return
 	}
 	u, err := h.repo.GetByID(c.Request.Context(), uid)
-	if err != nil || u == nil {
+	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
@@ -227,7 +248,8 @@ func (h *Handler) UpdateMe(c *gin.Context) {
 }
 
 func (h *Handler) ListUsers(c *gin.Context) {
-	list, err := h.repo.List(c.Request.Context())
+	limit, offset := parsePagination(c, 500)
+	list, err := h.repo.List(c.Request.Context(), limit, offset)
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -313,16 +335,13 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	// Load the user to verify current password
-	u, err := h.repo.GetByID(c.Request.Context(), uid)
-	if err != nil || u == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
-		return
-	}
-
-	// Fetch user with password hash
-	uwp, err := h.repo.GetByLogin(c.Request.Context(), u.Login)
+	// Single query: fetch user with password hash by ID.
+	uwp, err := h.repo.GetByIDWithPassword(c.Request.Context(), uid)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
@@ -340,19 +359,16 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	if err := h.repo.UpdatePassword(c.Request.Context(), uid, string(newHash)); err != nil {
+	// Atomically update password_hash and clear must_change_password in one query.
+	if _, err := h.repo.UpdatePasswordAndMustChange(c.Request.Context(), uid, string(newHash), false); err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
-	if err := h.repo.SetMustChangePassword(c.Request.Context(), uid, false); err != nil {
-		httplog.LogError(c, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-		return
-	}
+	httplog.LogAudit(c, "change_password", "user", uid)
 
-	token, err := h.generateToken(uid, u.Role, false)
+	token, err := h.generateToken(uid, uwp.Role, false)
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create token"})
@@ -364,7 +380,8 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 
 // AdminListUsers handles GET /api/v1/admin/users.
 func (h *Handler) AdminListUsers(c *gin.Context) {
-	list, err := h.repo.ListAll(c.Request.Context())
+	limit, offset := parsePagination(c, 500)
+	list, err := h.repo.ListAll(c.Request.Context(), limit, offset)
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -390,20 +407,8 @@ func (h *Handler) AdminCreateUser(c *gin.Context) {
 		return
 	}
 
-	if len(req.Login) < 3 || len(req.Login) > 50 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "login must be 3-50 characters"})
-		return
-	}
-	if len(req.Password) < 6 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at least 6 characters"})
-		return
-	}
-	if len(req.Password) > 72 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at most 72 characters"})
-		return
-	}
-	if len(req.Name) > 200 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "name must be at most 200 characters"})
+	if msg := validateCredentials(req.Login, req.Password, req.Name); msg != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 		return
 	}
 
@@ -429,7 +434,8 @@ func (h *Handler) AdminCreateUser(c *gin.Context) {
 		return
 	}
 
-	user, err := h.repo.Create(c.Request.Context(), req.Login, string(hash), req.Name, req.Role, req.Email)
+	// Create user with must_change_password=true atomically in a single INSERT.
+	user, err := h.repo.Create(c.Request.Context(), req.Login, string(hash), req.Name, req.Role, req.Email, true)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -440,13 +446,6 @@ func (h *Handler) AdminCreateUser(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-
-	if err := h.repo.SetMustChangePassword(c.Request.Context(), user.ID, true); err != nil {
-		httplog.LogError(c, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-		return
-	}
-	user.MustChangePassword = true
 
 	c.JSON(http.StatusCreated, gin.H{"user": user, "temp_password": req.Password})
 }
@@ -541,17 +540,18 @@ func (h *Handler) AdminResetPassword(c *gin.Context) {
 		return
 	}
 
-	if err := h.repo.UpdatePassword(c.Request.Context(), targetID, string(hash)); err != nil {
+	// Atomically update password and set must_change_password = true.
+	found, err := h.repo.UpdatePasswordAndMustChange(c.Request.Context(), targetID, string(hash), true)
+	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	if !found {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
 
-	if err := h.repo.SetMustChangePassword(c.Request.Context(), targetID, true); err != nil {
-		httplog.LogError(c, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-		return
-	}
 	httplog.LogAudit(c, "admin_reset_password", "actor", actorID, "target", targetID)
 	c.JSON(http.StatusOK, gin.H{"temp_password": tempPassword})
 }
@@ -580,6 +580,20 @@ func (h *Handler) AdminGetActivity(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, list)
+}
+
+// parsePagination reads ?limit= and ?offset= query params with a hard cap on limit.
+func parsePagination(c *gin.Context, maxLimit int) (limit, offset int) {
+	limit = maxLimit
+	if v, err := strconv.Atoi(c.Query("limit")); err == nil && v > 0 {
+		if v < maxLimit {
+			limit = v
+		}
+	}
+	if v, err := strconv.Atoi(c.Query("offset")); err == nil && v >= 0 {
+		offset = v
+	}
+	return
 }
 
 // generateTempPassword generates a cryptographically random password of given length.

@@ -38,6 +38,14 @@ func Auth(userHandler *users.Handler) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		// Проверяем is_blocked при каждом запросе, чтобы блокировка вступала
+		// в силу немедленно, не дожидаясь истечения JWT.
+		blocked, err := userHandler.IsUserBlocked(c.Request.Context(), userID)
+		if err == nil && blocked {
+			c.JSON(http.StatusForbidden, gin.H{"error": "user is blocked"})
+			c.Abort()
+			return
+		}
 		c.Set(requestcontext.UserIDKey, userID)
 		c.Set("user_role", role)
 		c.Set("must_change_password", mustChangePassword)

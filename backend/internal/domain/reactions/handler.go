@@ -62,10 +62,14 @@ func (h *Handler) DeleteLessonReaction(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid lesson id"})
 		return
 	}
-	_, err = h.repo.DeleteLessonReaction(c.Request.Context(), lessonID, userID)
+	deleted, err := h.repo.DeleteLessonReaction(c.Request.Context(), lessonID, userID)
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	if !deleted {
+		c.JSON(http.StatusNotFound, gin.H{"error": "reaction not found"})
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -112,10 +116,14 @@ func (h *Handler) DeleteCommentReaction(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid comment id"})
 		return
 	}
-	_, err = h.repo.DeleteCommentReaction(c.Request.Context(), commentID, userID)
+	deleted, err := h.repo.DeleteCommentReaction(c.Request.Context(), commentID, userID)
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	if !deleted {
+		c.JSON(http.StatusNotFound, gin.H{"error": "reaction not found"})
 		return
 	}
 	c.Status(http.StatusNoContent)

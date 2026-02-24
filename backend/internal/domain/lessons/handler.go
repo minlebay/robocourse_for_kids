@@ -18,10 +18,11 @@ import (
 
 // Length limits for validation (defence against huge payloads and DB bloat).
 const (
-	MaxTitleLength        = 500
-	MaxDescriptionLength  = 10 * 1024   // 10 KB
-	MaxStepContentLength  = 100 * 1024  // 100 KB per step
-	MaxStepsPerLesson     = 200
+	MaxTitleLength       = 500
+	MaxDescriptionLength = 10 * 1024  // 10 KB
+	MaxStepContentLength = 100 * 1024 // 100 KB per step
+	MaxStepsPerLesson    = 200
+	MaxTagLength         = 100
 )
 
 var validLessonTypes = map[string]bool{"theory": true, "practice": true, "project": true}
@@ -55,6 +56,10 @@ func NewHandler(repo Repository, reactionProvider LessonReactionProvider) *Handl
 func (h *Handler) ListModules(c *gin.Context) {
 	var tag *string
 	if t := c.Query("tag"); t != "" {
+		if len(t) > MaxTagLength {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("tag must be at most %d characters", MaxTagLength)})
+			return
+		}
 		tag = &t
 	}
 	list, err := h.repo.ListModules(c.Request.Context(), tag)
@@ -82,15 +87,11 @@ func (h *Handler) GetModule(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	if mod == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "module not found"})
-		return
-	}
 	c.JSON(http.StatusOK, mod)
 }
 
 type CreateModuleRequest struct {
-	Title       string `json:"title"`
+	Title       string `json:"title" binding:"required"`
 	Description string `json:"description"`
 	SortOrder   int    `json:"sort_order"`
 }
@@ -101,10 +102,6 @@ func (h *Handler) CreateModule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body: " + err.Error()})
 		return
 	}
-	if req.Title == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "title must not be empty"})
-		return
-	}
 	if len(req.Title) > MaxTitleLength {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("title must be at most %d characters", MaxTitleLength)})
 		return
@@ -113,7 +110,7 @@ func (h *Handler) CreateModule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("description must be at most %d characters", MaxDescriptionLength)})
 		return
 	}
-	title := req.Title
+	title := sanitize.Description(req.Title)
 	description := sanitize.Description(req.Description)
 	mod, err := h.repo.CreateModule(c.Request.Context(), title, description, req.SortOrder)
 	if err != nil {
@@ -163,7 +160,7 @@ func (h *Handler) DeleteLesson(c *gin.Context) {
 }
 
 type CreateLessonRequest struct {
-	Title       string       `json:"title"`
+	Title       string       `json:"title" binding:"required"`
 	Description string       `json:"description"`
 	LessonType  string       `json:"lesson_type"`
 	SortOrder   int          `json:"sort_order"`
@@ -179,10 +176,6 @@ func (h *Handler) CreateLesson(c *gin.Context) {
 	var req CreateLessonRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body: " + err.Error()})
-		return
-	}
-	if req.Title == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "title must not be empty"})
 		return
 	}
 	if len(req.Title) > MaxTitleLength {
@@ -224,7 +217,8 @@ func (h *Handler) CreateLesson(c *gin.Context) {
 		steps[i].Title = sanitize.Description(steps[i].Title)
 		steps[i].Content = sanitize.LessonContent(steps[i].Content)
 	}
-	title := req.Title
+	// Sanitize title consistently with UpdateLesson.
+	title := sanitize.Description(req.Title)
 	description := sanitize.Description(req.Description)
 	lesson, err := h.repo.CreateLesson(c.Request.Context(), moduleID, title, description, req.LessonType, req.SortOrder, steps)
 	if err != nil {
@@ -256,10 +250,6 @@ func (h *Handler) GetLesson(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	if lesson == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "lesson not found"})
-		return
-	}
 	if h.reactionProvider != nil {
 		userID := middleware.UserID(c)
 		likes, dislikes, userReaction, err := h.reactionProvider.GetForLesson(c.Request.Context(), id, userID)
@@ -278,6 +268,7 @@ func (h *Handler) GetLesson(c *gin.Context) {
 }
 
 // UpdateLessonRequest body for PUT /lessons/:id (teacher only).
+// Steps: if nil — do not touch steps; if empty array — delete all steps.
 type UpdateLessonRequest struct {
 	Title       *string       `json:"title"`
 	Description *string       `json:"description"`
@@ -328,7 +319,6 @@ func (h *Handler) UpdateLesson(c *gin.Context) {
 				return
 			}
 		}
-		// Sanitize before passing to repo.
 		for i := range steps {
 			steps[i].Title = sanitize.Description(steps[i].Title)
 			steps[i].Content = sanitize.LessonContent(steps[i].Content)

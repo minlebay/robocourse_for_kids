@@ -7,11 +7,13 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
+	_ "github.com/jackc/pgx/v5/stdlib" // pgx as database/sql driver (replaces lib/pq)
 	"learn_kids/backend/migrations"
 )
 
 func RunMigrations(databaseURL string) error {
-	db, err := sql.Open("postgres", databaseURL)
+	// Use pgx's database/sql compatibility layer — no separate lib/pq driver needed.
+	db, err := sql.Open("pgx", databaseURL)
 	if err != nil {
 		return fmt.Errorf("open db for migrate: %w", err)
 	}

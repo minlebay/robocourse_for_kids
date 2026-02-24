@@ -21,25 +21,27 @@ func init() { gin.SetMode(gin.TestMode) }
 // --- mock ---
 
 type mockRepo struct {
-	CreateFn               func(ctx context.Context, login, passwordHash, name, role, email string) (*User, error)
-	GetByLoginFn           func(ctx context.Context, login string) (*UserWithPassword, error)
-	GetByIDFn              func(ctx context.Context, id uuid.UUID) (*User, error)
-	ListFn                 func(ctx context.Context) ([]User, error)
-	ListAllFn              func(ctx context.Context) ([]User, error)
-	DeleteFn               func(ctx context.Context, id uuid.UUID) (bool, error)
-	UpdateThemeFn          func(ctx context.Context, id uuid.UUID, theme string) error
-	BlockUserFn            func(ctx context.Context, id uuid.UUID, block bool) error
-	SetMustChangePasswordFn func(ctx context.Context, id uuid.UUID, v bool) error
-	UpdatePasswordFn       func(ctx context.Context, id uuid.UUID, hash string) error
-	GetStatsFn             func(ctx context.Context) (usersCount, modulesCount, lessonsCount int, err error)
-	GetActivityFn          func(ctx context.Context, limit int) ([]User, error)
+	CreateFn                   func(ctx context.Context, login, passwordHash, name, role, email string, mustChangePassword bool) (*User, error)
+	GetByLoginFn               func(ctx context.Context, login string) (*UserWithPassword, error)
+	GetByIDFn                  func(ctx context.Context, id uuid.UUID) (*User, error)
+	GetByIDWithPasswordFn      func(ctx context.Context, id uuid.UUID) (*UserWithPassword, error)
+	IsBlockedFn                func(ctx context.Context, id uuid.UUID) (bool, error)
+	ListFn                     func(ctx context.Context, limit, offset int) ([]User, error)
+	ListAllFn                  func(ctx context.Context, limit, offset int) ([]User, error)
+	DeleteFn                   func(ctx context.Context, id uuid.UUID) (bool, error)
+	UpdateThemeFn              func(ctx context.Context, id uuid.UUID, theme string) error
+	BlockUserFn                func(ctx context.Context, id uuid.UUID, block bool) error
+	SetMustChangePasswordFn    func(ctx context.Context, id uuid.UUID, v bool) error
+	UpdatePasswordAndMustChangeFn func(ctx context.Context, id uuid.UUID, hash string, mustChange bool) (bool, error)
+	GetStatsFn                 func(ctx context.Context) (usersCount, modulesCount, lessonsCount int, err error)
+	GetActivityFn              func(ctx context.Context, limit int) ([]User, error)
 }
 
-func (m *mockRepo) Create(ctx context.Context, login, passwordHash, name, role, email string) (*User, error) {
+func (m *mockRepo) Create(ctx context.Context, login, passwordHash, name, role, email string, mustChangePassword bool) (*User, error) {
 	if m.CreateFn != nil {
-		return m.CreateFn(ctx, login, passwordHash, name, role, email)
+		return m.CreateFn(ctx, login, passwordHash, name, role, email, mustChangePassword)
 	}
-	return &User{ID: uuid.New(), Login: login, Name: name, Role: role, Theme: "default", CreatedAt: time.Now()}, nil
+	return &User{ID: uuid.New(), Login: login, Name: name, Role: role, Theme: "default", MustChangePassword: mustChangePassword, CreatedAt: time.Now()}, nil
 }
 
 func (m *mockRepo) GetByLogin(ctx context.Context, login string) (*UserWithPassword, error) {
@@ -56,16 +58,30 @@ func (m *mockRepo) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	return nil, pgx.ErrNoRows
 }
 
-func (m *mockRepo) List(ctx context.Context) ([]User, error) {
+func (m *mockRepo) GetByIDWithPassword(ctx context.Context, id uuid.UUID) (*UserWithPassword, error) {
+	if m.GetByIDWithPasswordFn != nil {
+		return m.GetByIDWithPasswordFn(ctx, id)
+	}
+	return nil, pgx.ErrNoRows
+}
+
+func (m *mockRepo) IsBlocked(ctx context.Context, id uuid.UUID) (bool, error) {
+	if m.IsBlockedFn != nil {
+		return m.IsBlockedFn(ctx, id)
+	}
+	return false, nil
+}
+
+func (m *mockRepo) List(ctx context.Context, limit, offset int) ([]User, error) {
 	if m.ListFn != nil {
-		return m.ListFn(ctx)
+		return m.ListFn(ctx, limit, offset)
 	}
 	return nil, nil
 }
 
-func (m *mockRepo) ListAll(ctx context.Context) ([]User, error) {
+func (m *mockRepo) ListAll(ctx context.Context, limit, offset int) ([]User, error) {
 	if m.ListAllFn != nil {
-		return m.ListAllFn(ctx)
+		return m.ListAllFn(ctx, limit, offset)
 	}
 	return nil, nil
 }
@@ -98,11 +114,11 @@ func (m *mockRepo) SetMustChangePassword(ctx context.Context, id uuid.UUID, v bo
 	return nil
 }
 
-func (m *mockRepo) UpdatePassword(ctx context.Context, id uuid.UUID, hash string) error {
-	if m.UpdatePasswordFn != nil {
-		return m.UpdatePasswordFn(ctx, id, hash)
+func (m *mockRepo) UpdatePasswordAndMustChange(ctx context.Context, id uuid.UUID, hash string, mustChange bool) (bool, error) {
+	if m.UpdatePasswordAndMustChangeFn != nil {
+		return m.UpdatePasswordAndMustChangeFn(ctx, id, hash, mustChange)
 	}
-	return nil
+	return true, nil
 }
 
 func (m *mockRepo) GetStats(ctx context.Context) (usersCount, modulesCount, lessonsCount int, err error) {
@@ -262,7 +278,7 @@ func TestRegisterUser_TeacherWrongInvite(t *testing.T) {
 
 func TestRegisterUser_DuplicateLogin(t *testing.T) {
 	repo := &mockRepo{
-		CreateFn: func(ctx context.Context, login, passwordHash, name, role, email string) (*User, error) {
+		CreateFn: func(ctx context.Context, login, passwordHash, name, role, email string, mustChangePassword bool) (*User, error) {
 			return nil, &pgconn.PgError{Code: "23505"}
 		},
 	}
@@ -399,10 +415,10 @@ func TestMe_Unauthorized(t *testing.T) {
 
 func TestListUsers_Success(t *testing.T) {
 	repo := &mockRepo{
-		ListFn: func(ctx context.Context) ([]User, error) {
+		ListFn: func(ctx context.Context, limit, offset int) ([]User, error) {
 			return []User{
 				{ID: uuid.New(), Login: "a", Name: "A", Role: RoleStudent},
-				{ID: uuid.New(), Login: "b", Name: "B", Role: RoleTeacher},
+				{ID: uuid.New(), Login: "b", Name: "B", Role: RoleStudent},
 			}, nil
 		},
 	}
@@ -543,8 +559,8 @@ func TestUpdateMe_InvalidTheme(t *testing.T) {
 
 func TestAdminCreateUser_Success(t *testing.T) {
 	repo := &mockRepo{
-		CreateFn: func(ctx context.Context, login, passwordHash, name, role, email string) (*User, error) {
-			return &User{ID: uuid.New(), Login: login, Name: name, Role: role, Theme: "default", CreatedAt: time.Now()}, nil
+		CreateFn: func(ctx context.Context, login, passwordHash, name, role, email string, mustChangePassword bool) (*User, error) {
+			return &User{ID: uuid.New(), Login: login, Name: name, Role: role, Theme: "default", MustChangePassword: mustChangePassword, CreatedAt: time.Now()}, nil
 		},
 	}
 	h := NewHandler(repo, "test-secret", "")
@@ -593,9 +609,9 @@ func TestAdminCreateUser_InvalidEmail(t *testing.T) {
 
 func TestAdminCreateUser_ValidEmail(t *testing.T) {
 	repo := &mockRepo{
-		CreateFn: func(ctx context.Context, login, passwordHash, name, role, email string) (*User, error) {
+		CreateFn: func(ctx context.Context, login, passwordHash, name, role, email string, mustChangePassword bool) (*User, error) {
 			e := email
-			return &User{ID: uuid.New(), Login: login, Name: name, Role: role, Theme: "default", Email: &e, CreatedAt: time.Now()}, nil
+			return &User{ID: uuid.New(), Login: login, Name: name, Role: role, Theme: "default", Email: &e, MustChangePassword: mustChangePassword, CreatedAt: time.Now()}, nil
 		},
 	}
 	h := NewHandler(repo, "test-secret", "")
@@ -848,12 +864,9 @@ func TestChangePassword_Success(t *testing.T) {
 	uid := uuid.New()
 	hash, _ := bcrypt.GenerateFromPassword([]byte("oldpass1"), bcrypt.MinCost)
 	repo := &mockRepo{
-		GetByIDFn: func(ctx context.Context, id uuid.UUID) (*User, error) {
-			return &User{ID: id, Login: "user1", Role: RoleStudent}, nil
-		},
-		GetByLoginFn: func(ctx context.Context, login string) (*UserWithPassword, error) {
+		GetByIDWithPasswordFn: func(ctx context.Context, id uuid.UUID) (*UserWithPassword, error) {
 			return &UserWithPassword{
-				User:         User{ID: uid, Login: login, Role: RoleStudent, CreatedAt: time.Now()},
+				User:         User{ID: uid, Login: "user1", Role: RoleStudent, CreatedAt: time.Now()},
 				PasswordHash: string(hash),
 			}, nil
 		},
@@ -931,12 +944,9 @@ func TestChangePassword_WrongCurrentPassword(t *testing.T) {
 	uid := uuid.New()
 	hash, _ := bcrypt.GenerateFromPassword([]byte("correctpass"), bcrypt.MinCost)
 	repo := &mockRepo{
-		GetByIDFn: func(ctx context.Context, id uuid.UUID) (*User, error) {
-			return &User{ID: id, Login: "user1", Role: RoleStudent}, nil
-		},
-		GetByLoginFn: func(ctx context.Context, login string) (*UserWithPassword, error) {
+		GetByIDWithPasswordFn: func(ctx context.Context, id uuid.UUID) (*UserWithPassword, error) {
 			return &UserWithPassword{
-				User:         User{ID: uid, Login: login, Role: RoleStudent, CreatedAt: time.Now()},
+				User:         User{ID: uid, Login: "user1", Role: RoleStudent, CreatedAt: time.Now()},
 				PasswordHash: string(hash),
 			}, nil
 		},

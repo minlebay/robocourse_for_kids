@@ -66,28 +66,22 @@ func (r *Repo) ListModules(ctx context.Context, tag *string) ([]Module, error) {
 }
 
 func (r *Repo) CreateModule(ctx context.Context, title, description string, sortOrder int) (*Module, error) {
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback(ctx)
-
-	if sortOrder == 0 {
-		var maxOrder int
-		if err := tx.QueryRow(ctx, "SELECT COALESCE(MAX(sort_order), 0) + 1 FROM modules").Scan(&maxOrder); err != nil {
-			return nil, err
-		}
-		sortOrder = maxOrder
-	}
 	var m Module
 	var desc *string
 	if description != "" {
 		desc = &description
 	}
 	var outDesc *string
-	err = tx.QueryRow(ctx, `
+	// When sortOrder is 0, auto-assign the next value using a CTE — no transaction needed.
+	err := r.pool.QueryRow(ctx, `
+		WITH next_order AS (
+			SELECT CASE WHEN $3 = 0
+				THEN COALESCE((SELECT MAX(sort_order) FROM modules), 0) + 1
+				ELSE $3
+			END AS val
+		)
 		INSERT INTO modules (title, description, sort_order)
-		VALUES ($1, $2, $3)
+		SELECT $1, $2, val FROM next_order
 		RETURNING id, title, description, sort_order, created_at
 	`, title, desc, sortOrder).Scan(&m.ID, &m.Title, &outDesc, &m.SortOrder, &m.CreatedAt)
 	if err != nil {
@@ -95,9 +89,6 @@ func (r *Repo) CreateModule(ctx context.Context, title, description string, sort
 	}
 	if outDesc != nil {
 		m.Description = *outDesc
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return nil, err
 	}
 	return &m, nil
 }
