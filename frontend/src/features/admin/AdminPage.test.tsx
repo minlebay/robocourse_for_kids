@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { AdminPage } from './AdminPage'
+import type { User, AdminStats } from '../../shared/types'
 
 vi.mock('../../shared/api', () => ({
   admin: {
@@ -58,14 +59,14 @@ vi.mock('../../components/ConfirmModal', () => ({
 const api = await import('../../shared/api')
 const useAuth = (await import('../auth/AuthContext').then((m) => m.useAuth)) as ReturnType<typeof vi.fn>
 
-const ADMIN_USER = { id: 'admin1', login: 'admin', name: 'Admin', role: 'administrator' }
+const ADMIN_USER: User = { id: 'admin1', login: 'admin', name: 'Admin', role: 'administrator', created_at: '2025-01-01T00:00:00Z' }
 
-const USERS = [
-  { id: 'u1', login: 'alice', name: 'Alice', role: 'student', is_blocked: false },
-  { id: 'u2', login: 'bob', name: 'Bob', role: 'teacher', is_blocked: true },
+const USERS: User[] = [
+  { id: 'u1', login: 'alice', name: 'Alice', role: 'student', is_blocked: false, created_at: '2025-01-01T00:00:00Z' },
+  { id: 'u2', login: 'bob', name: 'Bob', role: 'teacher', is_blocked: true, created_at: '2025-01-01T00:00:00Z' },
 ]
 
-const STATS = { users_count: 2, modules_count: 3, lessons_count: 10 }
+const STATS: AdminStats = { users: 2, modules: 3, lessons: 10 }
 
 describe('AdminPage', () => {
   beforeEach(() => {

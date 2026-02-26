@@ -42,7 +42,7 @@ export function ChangePasswordPage() {
 
     // Пароль изменён — сбрасываем флаг оптимистично, чтобы избежать зацикленного
     // редиректа на /change-password если последующий me() упадёт.
-    setUser((prev) => (prev ? { ...prev, must_change_password: false } : null))
+    setUser(user ? { ...user, must_change_password: false } : null)
     try {
       const updatedUser = await authApi.me()
       setUser(updatedUser)

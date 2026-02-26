@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { LessonPage } from './LessonPage'
+import type { Lesson, Module } from '../../shared/types'
 
 // Mock all API calls used by hooks and nested components
 vi.mock('../../shared/api', () => ({
@@ -55,26 +56,28 @@ vi.mock('../../components', () => ({
 const api = await import('../../shared/api')
 const useAuth = (await import('../auth/AuthContext').then((m) => m.useAuth)) as ReturnType<typeof vi.fn>
 
-const LESSON = {
+const LESSON: Lesson = {
   id: 'lesson1',
   title: 'Мигаем светодиодом',
   description: 'Первый шаг в Arduino',
   lesson_type: 'theory',
   module_id: 'mod1',
   sort_order: 0,
+  created_at: '2025-01-01T00:00:00Z',
   steps: [
-    { id: 's1', title: 'Подключение', content: 'Подключите LED к пину 13.', sort_order: 0 },
+    { id: 's1', lesson_id: 'lesson1', title: 'Подключение', content: 'Подключите LED к пину 13.', sort_order: 0 },
   ],
   checklist: [],
   likes_count: 5,
   dislikes_count: 1,
-  user_reaction: null,
+  user_reaction: undefined,
   tags: ['arduino', 'led'],
 }
 
-const MODULE = {
+const MODULE: Module = {
   id: 'mod1',
   title: 'Введение в Arduino',
+  description: 'Базовый курс',
   sort_order: 0,
   created_at: '2025-01-01T00:00:00Z',
   lessons: [LESSON],

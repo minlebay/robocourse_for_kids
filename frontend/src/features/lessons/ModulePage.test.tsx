@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { ModulePage } from './ModulePage'
+import type { Lesson } from '../../shared/types'
 
 vi.mock('../../shared/api', () => ({
   modules: {
@@ -58,8 +59,8 @@ const MODULE_DATA = {
   sort_order: 0,
   created_at: '2025-01-01T00:00:00Z',
   lessons: [
-    { id: 'l1', title: 'Урок 1: Мигаем светодиодом', sort_order: 0, lesson_type: 'theory', module_id: 'mod1' },
-    { id: 'l2', title: 'Урок 2: Кнопка', sort_order: 1, lesson_type: 'practice', module_id: 'mod1' },
+    { id: 'l1', title: 'Урок 1: Мигаем светодиодом', sort_order: 0, lesson_type: 'theory', module_id: 'mod1', description: '', created_at: '2025-01-01T00:00:00Z' } as Lesson,
+    { id: 'l2', title: 'Урок 2: Кнопка', sort_order: 1, lesson_type: 'practice', module_id: 'mod1', description: '', created_at: '2025-01-01T00:00:00Z' } as Lesson,
   ],
 }
 
@@ -116,7 +117,7 @@ describe('ModulePage', () => {
 
   it('creates a lesson and shows it in the list', async () => {
     useAuth.mockReturnValue({ user: TEACHER })
-    const newLesson = { id: 'l3', title: 'Урок 3: Сервопривод', sort_order: 2, lesson_type: 'practice', module_id: 'mod1' }
+    const newLesson = { id: 'l3', title: 'Урок 3: Сервопривод', sort_order: 2, lesson_type: 'practice', module_id: 'mod1', description: '', created_at: '2025-01-01T00:00:00Z' } as Lesson
     vi.mocked(api.modules.createLesson).mockResolvedValue(newLesson)
     renderModulePage()
 
