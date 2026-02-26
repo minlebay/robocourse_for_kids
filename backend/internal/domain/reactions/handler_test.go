@@ -82,7 +82,7 @@ func jsonRequest(method, target string, body interface{}, params map[string]stri
 }
 
 func TestSetLessonReaction_Unauthorized(t *testing.T) {
-	h := NewHandler(&mockRepo{})
+	h := NewHandler(&mockRepo{}, nil)
 	lessonID := uuid.New()
 	w, c := jsonRequest(http.MethodPut, "/lessons/"+lessonID.String()+"/reaction", SetReactionRequest{Reaction: "like"}, map[string]string{"id": lessonID.String()}, uuid.Nil)
 	h.SetLessonReaction(c)
@@ -93,7 +93,7 @@ func TestSetLessonReaction_Unauthorized(t *testing.T) {
 
 func TestSetLessonReaction_InvalidLessonID(t *testing.T) {
 	userID := uuid.New()
-	h := NewHandler(&mockRepo{})
+	h := NewHandler(&mockRepo{}, nil)
 	w, c := jsonRequest(http.MethodPut, "/lessons/bad/reaction", SetReactionRequest{Reaction: "like"}, map[string]string{"id": "bad"}, userID)
 	h.SetLessonReaction(c)
 	if w.Code != http.StatusBadRequest {
@@ -104,7 +104,7 @@ func TestSetLessonReaction_InvalidLessonID(t *testing.T) {
 func TestSetLessonReaction_InvalidReaction(t *testing.T) {
 	lessonID := uuid.New()
 	userID := uuid.New()
-	h := NewHandler(&mockRepo{})
+	h := NewHandler(&mockRepo{}, nil)
 	w, c := jsonRequest(http.MethodPut, "/lessons/"+lessonID.String()+"/reaction", SetReactionRequest{Reaction: "invalid"}, map[string]string{"id": lessonID.String()}, userID)
 	h.SetLessonReaction(c)
 	if w.Code != http.StatusBadRequest {
@@ -123,7 +123,7 @@ func TestSetLessonReaction_Success(t *testing.T) {
 			return nil
 		},
 	}
-	h := NewHandler(repo)
+	h := NewHandler(repo, nil)
 	w, c := jsonRequest(http.MethodPut, "/lessons/"+lessonID.String()+"/reaction", SetReactionRequest{Reaction: "like"}, map[string]string{"id": lessonID.String()}, userID)
 	h.SetLessonReaction(c)
 	if w.Code != http.StatusNoContent && w.Code != http.StatusOK {
@@ -134,7 +134,7 @@ func TestSetLessonReaction_Success(t *testing.T) {
 func TestDeleteLessonReaction_Success(t *testing.T) {
 	lessonID := uuid.New()
 	userID := uuid.New()
-	h := NewHandler(&mockRepo{})
+	h := NewHandler(&mockRepo{}, nil)
 	w, c := jsonRequest(http.MethodDelete, "/lessons/"+lessonID.String()+"/reaction", nil, map[string]string{"id": lessonID.String()}, userID)
 	h.DeleteLessonReaction(c)
 	if w.Code != http.StatusNoContent && w.Code != http.StatusOK {
@@ -143,7 +143,7 @@ func TestDeleteLessonReaction_Success(t *testing.T) {
 }
 
 func TestSetCommentReaction_Unauthorized(t *testing.T) {
-	h := NewHandler(&mockRepo{})
+	h := NewHandler(&mockRepo{}, nil)
 	lessonID := uuid.New()
 	commentID := uuid.New()
 	w, c := jsonRequest(http.MethodPut, "/lessons/"+lessonID.String()+"/comments/"+commentID.String()+"/reaction", SetReactionRequest{Reaction: "like"}, map[string]string{"id": lessonID.String(), "commentId": commentID.String()}, uuid.Nil)
@@ -156,7 +156,7 @@ func TestSetCommentReaction_Unauthorized(t *testing.T) {
 func TestSetCommentReaction_InvalidCommentID(t *testing.T) {
 	lessonID := uuid.New()
 	userID := uuid.New()
-	h := NewHandler(&mockRepo{})
+	h := NewHandler(&mockRepo{}, nil)
 	w, c := jsonRequest(http.MethodPut, "/lessons/"+lessonID.String()+"/comments/bad/reaction", SetReactionRequest{Reaction: "dislike"}, map[string]string{"id": lessonID.String(), "commentId": "bad"}, userID)
 	h.SetCommentReaction(c)
 	if w.Code != http.StatusBadRequest {
@@ -176,7 +176,7 @@ func TestSetCommentReaction_Success(t *testing.T) {
 			return nil
 		},
 	}
-	h := NewHandler(repo)
+	h := NewHandler(repo, nil)
 	w, c := jsonRequest(http.MethodPut, "/lessons/"+lessonID.String()+"/comments/"+commentID.String()+"/reaction", SetReactionRequest{Reaction: "dislike"}, map[string]string{"id": lessonID.String(), "commentId": commentID.String()}, userID)
 	h.SetCommentReaction(c)
 	if w.Code != http.StatusNoContent && w.Code != http.StatusOK {
@@ -188,7 +188,7 @@ func TestDeleteCommentReaction_Success(t *testing.T) {
 	lessonID := uuid.New()
 	commentID := uuid.New()
 	userID := uuid.New()
-	h := NewHandler(&mockRepo{})
+	h := NewHandler(&mockRepo{}, nil)
 	w, c := jsonRequest(http.MethodDelete, "/lessons/"+lessonID.String()+"/comments/"+commentID.String()+"/reaction", nil, map[string]string{"id": lessonID.String(), "commentId": commentID.String()}, userID)
 	h.DeleteCommentReaction(c)
 	if w.Code != http.StatusNoContent && w.Code != http.StatusOK {

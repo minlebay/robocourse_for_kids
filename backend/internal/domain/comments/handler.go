@@ -25,6 +25,7 @@ type Repository interface {
 	ListByLesson(ctx context.Context, lessonID uuid.UUID) ([]Comment, error)
 	Create(ctx context.Context, lessonID, userID uuid.UUID, text string) (*Comment, error)
 	DeleteByIDAndUser(ctx context.Context, commentID, lessonID, userID uuid.UUID) (bool, error)
+	GetCommentLessonID(ctx context.Context, commentID uuid.UUID) (uuid.UUID, error)
 }
 
 type Handler struct {

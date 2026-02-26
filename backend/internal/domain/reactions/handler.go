@@ -1,20 +1,30 @@
 package reactions
 
 import (
+	"context"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"learn_kids/backend/internal/httplog"
 	"learn_kids/backend/internal/middleware"
 )
 
-type Handler struct {
-	repo Repository
+// CommentLessonChecker returns the lesson ID for a comment. Used to verify comment belongs to lesson in path.
+// Optional: if nil, the check is skipped (backward compatibility).
+type CommentLessonChecker interface {
+	GetCommentLessonID(ctx context.Context, commentID uuid.UUID) (uuid.UUID, error)
 }
 
-func NewHandler(repo Repository) *Handler {
-	return &Handler{repo: repo}
+type Handler struct {
+	repo            Repository
+	commentChecker  CommentLessonChecker // optional: when set, comment reactions verify lesson from path
+}
+
+func NewHandler(repo Repository, commentChecker CommentLessonChecker) *Handler {
+	return &Handler{repo: repo, commentChecker: commentChecker}
 }
 
 type SetReactionRequest struct {
@@ -82,10 +92,31 @@ func (h *Handler) SetCommentReaction(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+	lessonID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid lesson id"})
+		return
+	}
 	commentID, err := uuid.Parse(c.Param("commentId"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid comment id"})
 		return
+	}
+	if h.commentChecker != nil {
+		commentLessonID, err := h.commentChecker.GetCommentLessonID(c.Request.Context(), commentID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "comment not found"})
+				return
+			}
+			httplog.LogError(c, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+		if commentLessonID != lessonID {
+			c.JSON(http.StatusNotFound, gin.H{"error": "comment not found"})
+			return
+		}
 	}
 	var req SetReactionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -111,10 +142,31 @@ func (h *Handler) DeleteCommentReaction(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+	lessonID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid lesson id"})
+		return
+	}
 	commentID, err := uuid.Parse(c.Param("commentId"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid comment id"})
 		return
+	}
+	if h.commentChecker != nil {
+		commentLessonID, err := h.commentChecker.GetCommentLessonID(c.Request.Context(), commentID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "comment not found"})
+				return
+			}
+			httplog.LogError(c, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+		if commentLessonID != lessonID {
+			c.JSON(http.StatusNotFound, gin.H{"error": "comment not found"})
+			return
+		}
 	}
 	deleted, err := h.repo.DeleteCommentReaction(c.Request.Context(), commentID, userID)
 	if err != nil {

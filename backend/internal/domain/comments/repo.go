@@ -78,3 +78,11 @@ func (r *Repo) DeleteByIDAndUser(ctx context.Context, commentID, lessonID, userI
 	}
 	return cmd.RowsAffected() > 0, nil
 }
+
+// GetCommentLessonID returns the lesson ID for the comment, or error if comment not found.
+// Used by reactions handler to verify comment belongs to the lesson in the request path.
+func (r *Repo) GetCommentLessonID(ctx context.Context, commentID uuid.UUID) (uuid.UUID, error) {
+	var lessonID uuid.UUID
+	err := r.pool.QueryRow(ctx, `SELECT lesson_id FROM lesson_comments WHERE id = $1`, commentID).Scan(&lessonID)
+	return lessonID, err
+}

@@ -16,13 +16,13 @@ After making changes: run `go test ./...`. If you add or change an endpoint, upd
 
 ## Architecture
 
-Domain-driven layout under `internal/domain/`. Each domain has its own handler, service, and repository files.
+Domain-driven layout under `internal/domain/`. Each domain has handler and repository; business logic lives in handlers (or in repository where it's simple).
 
 ```
 internal/domain/{domain}/
-├── handler.go    # HTTP layer: parse request, call service, write response
-├── service.go    # Business logic
-└── repository.go # Database queries
+├── handler.go    # HTTP layer: parse request, validate, call repository, write response
+├── repository.go # Database queries (and optional model types)
+└── model.go     # (optional) shared structs
 ```
 
 Domains: `users`, `lessons`, `progress`, `comments`, `reactions`, `chat`
@@ -35,7 +35,7 @@ Other packages:
 
 ## Key Conventions
 
-- Follow the handler → service → repository pattern; keep DB logic out of services
+- Follow the handler → repository pattern; keep DB access in repositories, validation and orchestration in handlers
 - Auth: sliding JWT sessions, 1-hour TTL, renewed when < 30 minutes remain
 - Rate limiting on auth endpoints: 10 req/min per IP
 - Sanitize all HTML input with `bluemonday` before writing to DB

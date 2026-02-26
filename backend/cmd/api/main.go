@@ -101,14 +101,15 @@ func main() {
 
 	usersRepo := users.NewRepo(pool)
 	reactionsRepo := reactions.NewRepo(pool)
+	commentsRepo := comments.NewRepo(pool)
 	srv := server.New(server.Deps{
 		Pool:             pool,
 		Lessons:          lessons.NewHandler(lessonsRepo, reactionsRepo),
 		Users:            users.NewHandler(usersRepo, cfg.JWTSecret, cfg.TeacherInviteCode),
 		Progress:         progress.NewHandler(progress.NewRepo(pool), &userChecker{repo: usersRepo}),
 		Chat:             chat.NewHandler(cfg.GeminiAPIKey, chat.NewRepo(pool), lessonContextFn),
-		Comments:         comments.NewHandler(comments.NewRepo(pool), reactionsRepo),
-		Reactions:        reactions.NewHandler(reactionsRepo),
+		Comments:         comments.NewHandler(commentsRepo, reactionsRepo),
+		Reactions:        reactions.NewHandler(reactionsRepo, commentsRepo),
 		JWTSecret:        cfg.JWTSecret,
 		FrontendOrigin:   cfg.FrontendOrigin,
 		ShutdownContext:   shutdownCtx,

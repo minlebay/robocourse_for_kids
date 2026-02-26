@@ -17,9 +17,17 @@ import (
 func init() { gin.SetMode(gin.TestMode) }
 
 type mockRepo struct {
-	ListByLessonFn      func(ctx context.Context, lessonID uuid.UUID) ([]Comment, error)
-	CreateFn            func(ctx context.Context, lessonID, userID uuid.UUID, text string) (*Comment, error)
-	DeleteByIDAndUserFn func(ctx context.Context, commentID, lessonID, userID uuid.UUID) (bool, error)
+	ListByLessonFn         func(ctx context.Context, lessonID uuid.UUID) ([]Comment, error)
+	CreateFn               func(ctx context.Context, lessonID, userID uuid.UUID, text string) (*Comment, error)
+	DeleteByIDAndUserFn     func(ctx context.Context, commentID, lessonID, userID uuid.UUID) (bool, error)
+	GetCommentLessonIDFn   func(ctx context.Context, commentID uuid.UUID) (uuid.UUID, error)
+}
+
+func (m *mockRepo) GetCommentLessonID(ctx context.Context, commentID uuid.UUID) (uuid.UUID, error) {
+	if m.GetCommentLessonIDFn != nil {
+		return m.GetCommentLessonIDFn(ctx, commentID)
+	}
+	return uuid.Nil, nil
 }
 
 func (m *mockRepo) ListByLesson(ctx context.Context, lessonID uuid.UUID) ([]Comment, error) {

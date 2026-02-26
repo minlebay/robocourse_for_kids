@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -8,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"learn_kids/backend/internal/requestcontext"
 	"learn_kids/backend/internal/testutil"
 )
 
@@ -234,4 +237,62 @@ func TestRateLimiter_TracksIPsSeparately(t *testing.T) {
 	req.RemoteAddr = "10.0.0.2:2222"
 	r.ServeHTTP(w, req)
 	testutil.AssertStatus(t, w, http.StatusOK)
+}
+
+// ==================== Auth: IsUserBlocked error ====================
+
+type mockAuthProvider struct {
+	parseTokenFn    func(string) (uuid.UUID, string, bool, time.Time, error)
+	isUserBlockedFn func(context.Context, uuid.UUID) (bool, error)
+	newTokenFn      func(uuid.UUID, string, bool) (string, error)
+}
+
+func (m *mockAuthProvider) ParseToken(s string) (uuid.UUID, string, bool, time.Time, error) {
+	if m.parseTokenFn != nil {
+		return m.parseTokenFn(s)
+	}
+	return uuid.Nil, "", false, time.Time{}, errors.New("invalid")
+}
+
+func (m *mockAuthProvider) IsUserBlocked(ctx context.Context, id uuid.UUID) (bool, error) {
+	if m.isUserBlockedFn != nil {
+		return m.isUserBlockedFn(ctx, id)
+	}
+	return false, nil
+}
+
+func (m *mockAuthProvider) NewToken(userID uuid.UUID, role string, mustChangePassword bool) (string, error) {
+	if m.newTokenFn != nil {
+		return m.newTokenFn(userID, role, mustChangePassword)
+	}
+	return "", nil
+}
+
+func TestAuth_Returns401WhenIsUserBlockedReturnsError(t *testing.T) {
+	// Valid token parse, but IsUserBlocked returns error (e.g. user deleted) → 401
+	mock := &mockAuthProvider{
+		parseTokenFn: func(string) (uuid.UUID, string, bool, time.Time, error) {
+			return uuid.New(), "student", false, time.Now().Add(time.Hour), nil
+		},
+		isUserBlockedFn: func(context.Context, uuid.UUID) (bool, error) {
+			return false, errors.New("user not found")
+		},
+	}
+	r := gin.New()
+	r.Use(Auth(mock))
+	r.GET("/test", func(c *gin.Context) {
+		if _, ok := c.Get(requestcontext.UserIDKey); ok {
+			t.Error("user_id must not be set when IsUserBlocked returns error")
+		}
+		c.Status(http.StatusOK)
+	})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("Authorization", "Bearer any-token")
+	r.ServeHTTP(w, req)
+	testutil.AssertStatus(t, w, http.StatusUnauthorized)
+	resp := testutil.ParseJSON(t, w)
+	if resp["error"] != "invalid or expired token" {
+		t.Errorf("error = %v; want 'invalid or expired token'", resp["error"])
+	}
 }
