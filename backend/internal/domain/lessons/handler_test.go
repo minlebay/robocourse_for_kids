@@ -12,15 +12,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"learn_kids/backend/internal/requestcontext"
+	"learn_kids/backend/internal/domain/users"
 )
 
 func init() { gin.SetMode(gin.TestMode) }
 
 // mockRepo captures CreateLesson and UpdateLesson arguments for assertions.
 type mockRepo struct {
-	ListModulesFn    func(ctx context.Context, tag *string) ([]Module, error)
+	ListModulesFn    func(ctx context.Context, tag *string, ownerID *uuid.UUID) ([]Module, error)
 	GetModuleByIDFn  func(ctx context.Context, id uuid.UUID) (*Module, error)
-	CreateModuleFn   func(ctx context.Context, title, description string, sortOrder int) (*Module, error)
+	CreateModuleFn   func(ctx context.Context, title, description string, sortOrder int, ownerID *uuid.UUID) (*Module, error)
 	DeleteModuleFn   func(ctx context.Context, id uuid.UUID) (bool, error)
 	GetLessonByIDFn  func(ctx context.Context, id uuid.UUID) (*Lesson, error)
 	CreateLessonFn   func(ctx context.Context, moduleID uuid.UUID, title, description, lessonType string, sortOrder int, steps []LessonStep) (*Lesson, error)
@@ -28,9 +29,9 @@ type mockRepo struct {
 	UpdateLessonFn   func(ctx context.Context, id uuid.UUID, title, description *string, steps []LessonStep) (*Lesson, error)
 }
 
-func (m *mockRepo) ListModules(ctx context.Context, tag *string) ([]Module, error) {
+func (m *mockRepo) ListModules(ctx context.Context, tag *string, ownerID *uuid.UUID) ([]Module, error) {
 	if m.ListModulesFn != nil {
-		return m.ListModulesFn(ctx, tag)
+		return m.ListModulesFn(ctx, tag, ownerID)
 	}
 	return nil, nil
 }
@@ -40,9 +41,9 @@ func (m *mockRepo) GetModuleByID(ctx context.Context, id uuid.UUID) (*Module, er
 	}
 	return nil, pgx.ErrNoRows
 }
-func (m *mockRepo) CreateModule(ctx context.Context, title, description string, sortOrder int) (*Module, error) {
+func (m *mockRepo) CreateModule(ctx context.Context, title, description string, sortOrder int, ownerID *uuid.UUID) (*Module, error) {
 	if m.CreateModuleFn != nil {
-		return m.CreateModuleFn(ctx, title, description, sortOrder)
+		return m.CreateModuleFn(ctx, title, description, sortOrder, ownerID)
 	}
 	return &Module{ID: uuid.New(), Title: title, Description: description, SortOrder: sortOrder}, nil
 }
@@ -95,6 +96,13 @@ func jsonRequest(method, target string, body interface{}, paramID string) (*http
 	return w, c
 }
 
+// setEditorContext sets user_id and user_roles so that canEditModule passes (e.g. administrator).
+func setEditorContext(c *gin.Context) {
+	uid := uuid.New()
+	c.Set(requestcontext.UserIDKey, uid)
+	c.Set("user_roles", []string{users.RoleAdministrator})
+}
+
 // --- CreateLesson: sanitization ---
 
 func TestCreateLesson_SanitizesStepContent(t *testing.T) {
@@ -117,6 +125,10 @@ func TestCreateLesson_SanitizesStepContent(t *testing.T) {
 	}
 	w, c := jsonRequest(http.MethodPost, "/modules/"+moduleID.String()+"/lessons", body, moduleID.String())
 	c.Params = gin.Params{{Key: "id", Value: moduleID.String()}}
+	setEditorContext(c)
+	repo.GetModuleByIDFn = func(ctx context.Context, id uuid.UUID) (*Module, error) {
+		return &Module{ID: id, OwnerID: nil}, nil
+	}
 
 	h.CreateLesson(c)
 
@@ -145,6 +157,10 @@ func TestCreateLesson_RejectsTooLongTitle(t *testing.T) {
 	body := CreateLessonRequest{Title: longTitle, LessonType: "theory"}
 	w, c := jsonRequest(http.MethodPost, "/modules/"+moduleID.String()+"/lessons", body, moduleID.String())
 	c.Params = gin.Params{{Key: "id", Value: moduleID.String()}}
+	setEditorContext(c)
+	repo.GetModuleByIDFn = func(ctx context.Context, id uuid.UUID) (*Module, error) {
+		return &Module{ID: id}, nil
+	}
 
 	h.CreateLesson(c)
 
@@ -170,6 +186,10 @@ func TestCreateLesson_RejectsTooLongStepContent(t *testing.T) {
 	}
 	w, c := jsonRequest(http.MethodPost, "/modules/"+moduleID.String()+"/lessons", body, moduleID.String())
 	c.Params = gin.Params{{Key: "id", Value: moduleID.String()}}
+	setEditorContext(c)
+	repo.GetModuleByIDFn = func(ctx context.Context, id uuid.UUID) (*Module, error) {
+		return &Module{ID: id}, nil
+	}
 
 	h.CreateLesson(c)
 
@@ -184,6 +204,12 @@ func TestUpdateLesson_SanitizesStepContent(t *testing.T) {
 	lessonID := uuid.New()
 	var capturedSteps []LessonStep
 	repo := &mockRepo{
+		GetLessonByIDFn: func(ctx context.Context, id uuid.UUID) (*Lesson, error) {
+			return &Lesson{ID: id, ModuleID: uuid.New()}, nil
+		},
+		GetModuleByIDFn: func(ctx context.Context, id uuid.UUID) (*Module, error) {
+			return &Module{ID: id}, nil
+		},
 		UpdateLessonFn: func(ctx context.Context, id uuid.UUID, title, description *string, steps []LessonStep) (*Lesson, error) {
 			capturedSteps = steps
 			return &Lesson{ID: id}, nil
@@ -197,6 +223,7 @@ func TestUpdateLesson_SanitizesStepContent(t *testing.T) {
 	body := UpdateLessonRequest{Steps: &steps}
 	w, c := jsonRequest(http.MethodPut, "/lessons/"+lessonID.String(), body, lessonID.String())
 	c.Params = gin.Params{{Key: "id", Value: lessonID.String()}}
+	setEditorContext(c)
 
 	h.UpdateLesson(c)
 
@@ -221,6 +248,7 @@ func TestCreateModule_RejectsTooLongTitle(t *testing.T) {
 	}
 	body := CreateModuleRequest{Title: longTitle}
 	w, c := jsonRequest(http.MethodPost, "/modules", body, "")
+	setEditorContext(c)
 	h.CreateModule(c)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d; want 400; body = %s", w.Code, w.Body.String())
@@ -230,7 +258,7 @@ func TestCreateModule_RejectsTooLongTitle(t *testing.T) {
 func TestCreateModule_SanitizesDescription(t *testing.T) {
 	var capturedDesc string
 	repo := &mockRepo{
-		CreateModuleFn: func(ctx context.Context, title, description string, sortOrder int) (*Module, error) {
+		CreateModuleFn: func(ctx context.Context, title, description string, sortOrder int, ownerID *uuid.UUID) (*Module, error) {
 			capturedDesc = description
 			return &Module{ID: uuid.New(), Title: title, Description: description}, nil
 		},
@@ -238,6 +266,7 @@ func TestCreateModule_SanitizesDescription(t *testing.T) {
 	h := NewHandler(NewService(repo, nil))
 	body := CreateModuleRequest{Title: "Mod", Description: `<script>bad</script> ok`}
 	w, c := jsonRequest(http.MethodPost, "/modules", body, "")
+	setEditorContext(c)
 	h.CreateModule(c)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("status = %d; want 201", w.Code)
@@ -249,16 +278,25 @@ func TestCreateModule_SanitizesDescription(t *testing.T) {
 
 func TestUpdateLesson_RejectsTooLongStepContent(t *testing.T) {
 	lessonID := uuid.New()
+	moduleID := uuid.New()
 	longContent := ""
 	for i := 0; i <= MaxStepContentLength; i++ {
 		longContent += "x"
 	}
-	repo := &mockRepo{}
+	repo := &mockRepo{
+		GetLessonByIDFn: func(ctx context.Context, id uuid.UUID) (*Lesson, error) {
+			return &Lesson{ID: id, ModuleID: moduleID}, nil
+		},
+		GetModuleByIDFn: func(ctx context.Context, id uuid.UUID) (*Module, error) {
+			return &Module{ID: id}, nil
+		},
+	}
 	h := NewHandler(NewService(repo, nil))
 	steps := []LessonStep{{Title: "Step", Content: longContent}}
 	body := UpdateLessonRequest{Steps: &steps}
 	w, c := jsonRequest(http.MethodPut, "/lessons/"+lessonID.String(), body, lessonID.String())
 	c.Params = gin.Params{{Key: "id", Value: lessonID.String()}}
+	setEditorContext(c)
 
 	h.UpdateLesson(c)
 
@@ -269,7 +307,7 @@ func TestUpdateLesson_RejectsTooLongStepContent(t *testing.T) {
 
 func TestListModules_Success(t *testing.T) {
 	repo := &mockRepo{
-		ListModulesFn: func(ctx context.Context, tag *string) ([]Module, error) {
+		ListModulesFn: func(ctx context.Context, tag *string, ownerID *uuid.UUID) ([]Module, error) {
 			return []Module{{ID: uuid.New(), Title: "Mod1", SortOrder: 1}}, nil
 		},
 	}
@@ -331,10 +369,16 @@ func TestGetLesson_NotFound(t *testing.T) {
 
 func TestCreateLesson_InvalidLessonType(t *testing.T) {
 	moduleID := uuid.New()
-	h := NewHandler(NewService(&mockRepo{}, nil))
+	repo := &mockRepo{
+		GetModuleByIDFn: func(ctx context.Context, id uuid.UUID) (*Module, error) {
+			return &Module{ID: id}, nil
+		},
+	}
+	h := NewHandler(NewService(repo, nil))
 	body := CreateLessonRequest{Title: "Lesson", LessonType: "invalid_type"}
 	w, c := jsonRequest(http.MethodPost, "/modules/"+moduleID.String()+"/lessons", body, moduleID.String())
 	c.Params = gin.Params{{Key: "id", Value: moduleID.String()}}
+	setEditorContext(c)
 	h.CreateLesson(c)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d; want 400; body = %s", w.Code, w.Body.String())
@@ -345,6 +389,7 @@ func TestCreateModule_EmptyTitle(t *testing.T) {
 	h := NewHandler(NewService(&mockRepo{}, nil))
 	body := CreateModuleRequest{Title: ""}
 	w, c := jsonRequest(http.MethodPost, "/modules", body, "")
+	setEditorContext(c)
 	h.CreateModule(c)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d; want 400", w.Code)
@@ -352,13 +397,19 @@ func TestCreateModule_EmptyTitle(t *testing.T) {
 }
 
 func TestDeleteModule_NotFound(t *testing.T) {
-	repo := &mockRepo{DeleteModuleFn: func(ctx context.Context, id uuid.UUID) (bool, error) {
-		return false, nil
-	}}
-	h := NewHandler(NewService(repo, nil))
 	id := uuid.New()
+	repo := &mockRepo{
+		GetModuleByIDFn: func(ctx context.Context, mid uuid.UUID) (*Module, error) {
+			return &Module{ID: mid}, nil
+		},
+		DeleteModuleFn: func(ctx context.Context, mid uuid.UUID) (bool, error) {
+			return false, nil
+		},
+	}
+	h := NewHandler(NewService(repo, nil))
 	w, c := jsonRequest(http.MethodDelete, "/modules/"+id.String(), nil, id.String())
 	c.Params = gin.Params{{Key: "id", Value: id.String()}}
+	setEditorContext(c)
 	h.DeleteModule(c)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("status = %d; want 404", w.Code)
@@ -366,13 +417,23 @@ func TestDeleteModule_NotFound(t *testing.T) {
 }
 
 func TestDeleteLesson_NotFound(t *testing.T) {
-	repo := &mockRepo{DeleteLessonFn: func(ctx context.Context, id uuid.UUID) (bool, error) {
-		return false, nil
-	}}
-	h := NewHandler(NewService(repo, nil))
 	id := uuid.New()
+	moduleID := uuid.New()
+	repo := &mockRepo{
+		GetLessonByIDFn: func(ctx context.Context, lid uuid.UUID) (*Lesson, error) {
+			return &Lesson{ID: lid, ModuleID: moduleID}, nil
+		},
+		GetModuleByIDFn: func(ctx context.Context, mid uuid.UUID) (*Module, error) {
+			return &Module{ID: mid}, nil
+		},
+		DeleteLessonFn: func(ctx context.Context, lid uuid.UUID) (bool, error) {
+			return false, nil
+		},
+	}
+	h := NewHandler(NewService(repo, nil))
 	w, c := jsonRequest(http.MethodDelete, "/lessons/"+id.String(), nil, id.String())
 	c.Params = gin.Params{{Key: "id", Value: id.String()}}
+	setEditorContext(c)
 	h.DeleteLesson(c)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("status = %d; want 404 when not deleted", w.Code)

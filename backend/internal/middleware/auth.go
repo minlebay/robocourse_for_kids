@@ -17,9 +17,9 @@ const newTokenHeader = "X-New-Token"
 // AuthProvider is used by Auth middleware to parse tokens and check user status.
 // *users.Handler implements this interface.
 type AuthProvider interface {
-	ParseToken(tokenString string) (userID uuid.UUID, role string, mustChangePassword bool, expiresAt time.Time, err error)
+	ParseToken(tokenString string) (userID uuid.UUID, roles []string, mustChangePassword bool, expiresAt time.Time, err error)
 	IsUserBlocked(ctx context.Context, id uuid.UUID) (bool, error)
-	NewToken(userID uuid.UUID, role string, mustChangePassword bool) (string, error)
+	NewToken(userID uuid.UUID, roles []string, mustChangePassword bool) (string, error)
 }
 
 // Auth parses JWT from the Authorization header and sets user_id and user_role
@@ -41,7 +41,7 @@ func Auth(provider AuthProvider) gin.HandlerFunc {
 			return
 		}
 		token := strings.TrimPrefix(auth, prefix)
-		userID, role, mustChangePassword, expiresAt, err := provider.ParseToken(token)
+		userID, roles, mustChangePassword, expiresAt, err := provider.ParseToken(token)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
 			c.Abort()
@@ -61,11 +61,11 @@ func Auth(provider AuthProvider) gin.HandlerFunc {
 			return
 		}
 		c.Set(requestcontext.UserIDKey, userID)
-		c.Set("user_role", role)
+		c.Set("user_roles", roles)
 		c.Set("must_change_password", mustChangePassword)
 		// Sliding session: при остатке времени меньше порога выдаём новый токен
 		if !expiresAt.IsZero() && time.Until(expiresAt) < users.SlidingRefreshThreshold {
-			if newToken, err := provider.NewToken(userID, role, mustChangePassword); err == nil {
+			if newToken, err := provider.NewToken(userID, roles, mustChangePassword); err == nil {
 				c.Header(newTokenHeader, newToken)
 			}
 		}
@@ -86,17 +86,27 @@ func RequireAuth() gin.HandlerFunc {
 	}
 }
 
+func hasRole(roles []string, want string) bool {
+	for _, r := range roles {
+		if r == want {
+			return true
+		}
+	}
+	return false
+}
+
 // RequireTeacher aborts with 403 if the authenticated user is not a teacher or administrator.
 // Must be used after RequireAuth.
 func RequireTeacher() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		role, exists := c.Get("user_role")
+		rolesVal, exists := c.Get("user_roles")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 			c.Abort()
 			return
 		}
-		if role != users.RoleTeacher && role != users.RoleAdministrator {
+		roles, _ := rolesVal.([]string)
+		if !hasRole(roles, users.RoleTeacher) && !hasRole(roles, users.RoleAdministrator) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "insufficient role"})
 			c.Abort()
 			return
@@ -109,13 +119,14 @@ func RequireTeacher() gin.HandlerFunc {
 // Must be used after RequireAuth.
 func RequireAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		role, exists := c.Get("user_role")
+		rolesVal, exists := c.Get("user_roles")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 			c.Abort()
 			return
 		}
-		if role != users.RoleAdministrator {
+		roles, _ := rolesVal.([]string)
+		if !hasRole(roles, users.RoleAdministrator) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "admin access required"})
 			c.Abort()
 			return

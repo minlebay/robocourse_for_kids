@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { lessons as lessonsApi, modules } from '../../shared/api'
 import { useAuth } from '../auth/AuthContext'
+import { canEditModule } from '../../shared/roles'
 import type { Module } from '../../shared/types'
 import { ConfirmModal } from '../../components'
 import { MarkdownStepEditor } from './MarkdownStepEditor'
@@ -169,7 +170,7 @@ export function ModulePage() {
         <p><Link to="/">{t('module.backToCatalog')}</Link></p>
         <h1>{module_.title}</h1>
         {module_.description && <p>{module_.description}</p>}
-        {user?.role === 'teacher' && (
+        {canEditModule(user, module_) && (
           <div className="module-teacher-actions">
             {!showCreateForm ? (
               <div className="module-teacher-buttons">
@@ -289,8 +290,8 @@ export function ModulePage() {
                   ) : (
                     <Link to={`/lessons/${lesson.id}`}>{lesson.title}</Link>
                   )}
-                  {user?.role === 'teacher' && (
-                    <button
+{canEditModule(user, module_) && (
+                      <button
                       type="button"
                       className="lesson-list-delete button-danger-outline"
                       onClick={(e) => {

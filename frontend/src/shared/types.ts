@@ -9,11 +9,14 @@ export type ThemeId =
   | 'midnight'
   | 'forest'
 
+export type UserRole = 'student' | 'teacher' | 'course_owner' | 'administrator'
+
 export interface User {
   id: string
   login: string
   name: string
   role: 'student' | 'teacher' | 'administrator'
+  roles?: UserRole[]
   theme?: ThemeId
   created_at: string
   email?: string
@@ -50,6 +53,8 @@ export interface Module {
   sort_order: number
   lessons?: Lesson[]
   created_at: string
+  owner_id?: string
+  is_owner?: boolean
 }
 
 /** Реакция пользователя: лайк или дизлайк */

@@ -1,6 +1,7 @@
 import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
+import { canEditModule } from '../../shared/roles'
 import { PageWithToc, type TocItem } from './PageWithToc'
 import { ConfirmModal } from '../../components'
 import { CourseNav } from './CourseNav'
@@ -51,9 +52,10 @@ export function LessonPage() {
     setFormDescription,
   } = useLessonEdit({ lessonId: id, lesson, setLesson })
 
+  const canEdit = !!id && !!module_ && canEditModule(user, module_)
   const { deleting, confirmDelete, setConfirmDelete, requestDeleteLesson, doDeleteLesson } = useLessonDelete({
     lessonId: id,
-    isTeacher: user?.role === 'teacher',
+    isTeacher: canEdit,
     module_,
     setSaveError,
   })
@@ -94,7 +96,7 @@ export function LessonPage() {
     >
       <CourseNav module={module_} currentLesson={lesson} className={styles.courseNav} />
       <div className={styles.content} data-lesson-page-content>
-        {user?.role === 'teacher' && !editing && (
+        {canEdit && !editing && (
           <div className={styles.editBar}>
             <button type="button" className="button-primary" onClick={startEditing}>
               {t('lesson.editLesson')}

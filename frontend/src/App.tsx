@@ -12,6 +12,7 @@ const LoginPage = lazy(() => import('./features/auth/LoginPage').then((m) => ({ 
 const RegisterPage = lazy(() => import('./features/auth/RegisterPage').then((m) => ({ default: m.RegisterPage })))
 const ChangePasswordPage = lazy(() => import('./features/auth/ChangePasswordPage').then((m) => ({ default: m.ChangePasswordPage })))
 const CatalogPage = lazy(() => import('./features/lessons/CatalogPage').then((m) => ({ default: m.CatalogPage })))
+const MyCoursesPage = lazy(() => import('./features/lessons/MyCoursesPage').then((m) => ({ default: m.MyCoursesPage })))
 const ModulePage = lazy(() => import('./features/lessons/ModulePage').then((m) => ({ default: m.ModulePage })))
 const LessonPage = lazy(() => import('./features/lessons/LessonPage').then((m) => ({ default: m.LessonPage })))
 const ProgressPage = lazy(() => import('./features/progress').then((m) => ({ default: m.ProgressPage })))
@@ -32,6 +33,14 @@ function AppRoutes() {
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
           <Route path="/" element={<CatalogPage />} />
+          <Route
+            path="/my-courses"
+            element={
+              <RequireAuth>
+                <MyCoursesPage />
+              </RequireAuth>
+            }
+          />
           <Route path="/modules/:id" element={<ModulePage />} />
           <Route path="/lessons/:id" element={<LessonPage />} />
           <Route path="/login" element={<LoginPage />} />

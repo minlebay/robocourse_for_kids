@@ -19,15 +19,15 @@ const TokenTTL = 1 * time.Hour
 
 type claims struct {
 	UserID             uuid.UUID `json:"user_id"`
-	Role               string    `json:"role"`
+	Roles              []string  `json:"roles"`
 	MustChangePassword bool      `json:"must_change_password"`
 	jwt.RegisteredClaims
 }
 
-func (h *Handler) generateToken(userID uuid.UUID, role string, mustChangePassword bool) (string, error) {
+func (h *Handler) generateToken(userID uuid.UUID, roles []string, mustChangePassword bool) (string, error) {
 	claims := claims{
 		UserID:             userID,
-		Role:               role,
+		Roles:              roles,
 		MustChangePassword: mustChangePassword,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TokenTTL)),
@@ -41,25 +41,25 @@ func (h *Handler) generateToken(userID uuid.UUID, role string, mustChangePasswor
 }
 
 // NewToken выдаёт новый JWT для пользователя (для sliding session).
-func (h *Handler) NewToken(userID uuid.UUID, role string, mustChangePassword bool) (string, error) {
-	return h.generateToken(userID, role, mustChangePassword)
+func (h *Handler) NewToken(userID uuid.UUID, roles []string, mustChangePassword bool) (string, error) {
+	return h.generateToken(userID, roles, mustChangePassword)
 }
 
-// ParseToken парсит JWT и возвращает userID, role, mustChangePassword и время истечения токена.
+// ParseToken парсит JWT и возвращает userID, roles, mustChangePassword и время истечения токена.
 // При невалидном или истёкшем токене возвращает err.
-func (h *Handler) ParseToken(tokenString string) (userID uuid.UUID, role string, mustChangePassword bool, expiresAt time.Time, err error) {
+func (h *Handler) ParseToken(tokenString string) (userID uuid.UUID, roles []string, mustChangePassword bool, expiresAt time.Time, err error) {
 	token, err := jwt.ParseWithClaims(tokenString, &claims{}, func(t *jwt.Token) (interface{}, error) {
 		return h.jwtKey, nil
 	}, jwt.WithValidMethods([]string{"HS256"}))
 	if err != nil {
-		return uuid.Nil, "", false, time.Time{}, ErrInvalidToken
+		return uuid.Nil, nil, false, time.Time{}, ErrInvalidToken
 	}
 	c, ok := token.Claims.(*claims)
 	if !ok || !token.Valid {
-		return uuid.Nil, "", false, time.Time{}, ErrInvalidToken
+		return uuid.Nil, nil, false, time.Time{}, ErrInvalidToken
 	}
 	if c.ExpiresAt != nil {
 		expiresAt = c.ExpiresAt.Time
 	}
-	return c.UserID, c.Role, c.MustChangePassword, expiresAt, nil
+	return c.UserID, c.Roles, c.MustChangePassword, expiresAt, nil
 }

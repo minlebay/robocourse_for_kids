@@ -22,14 +22,30 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
 }
 
-func (r *Repo) ListModules(ctx context.Context, tag *string) ([]Module, error) {
+func (r *Repo) ListModules(ctx context.Context, tag *string, ownerID *uuid.UUID) ([]Module, error) {
 	var rows pgx.Rows
 	var err error
 
-	if tag != nil {
-		// Single query with JOIN — no N+1
+	if ownerID != nil {
+		// Only modules owned by this user (?mine=true)
+		if tag != nil {
+			rows, err = r.pool.Query(ctx, `
+				SELECT DISTINCT m.id, m.title, m.description, m.sort_order, m.created_at, m.owner_id
+				FROM modules m
+				JOIN lessons l ON l.module_id = m.id
+				JOIN lesson_tags lt ON lt.lesson_id = l.id
+				WHERE m.owner_id = $1 AND lt.tag = $2
+				ORDER BY m.sort_order, m.created_at`, *ownerID, *tag)
+		} else {
+			rows, err = r.pool.Query(ctx, `
+				SELECT id, title, description, sort_order, created_at, owner_id
+				FROM modules
+				WHERE owner_id = $1
+				ORDER BY sort_order, created_at`, *ownerID)
+		}
+	} else if tag != nil {
 		rows, err = r.pool.Query(ctx, `
-			SELECT DISTINCT m.id, m.title, m.description, m.sort_order, m.created_at
+			SELECT DISTINCT m.id, m.title, m.description, m.sort_order, m.created_at, m.owner_id
 			FROM modules m
 			JOIN lessons l ON l.module_id = m.id
 			JOIN lesson_tags lt ON lt.lesson_id = l.id
@@ -37,7 +53,7 @@ func (r *Repo) ListModules(ctx context.Context, tag *string) ([]Module, error) {
 			ORDER BY m.sort_order, m.created_at`, *tag)
 	} else {
 		rows, err = r.pool.Query(ctx, `
-			SELECT id, title, description, sort_order, created_at
+			SELECT id, title, description, sort_order, created_at, owner_id
 			FROM modules
 			ORDER BY sort_order, created_at`)
 	}
@@ -50,7 +66,7 @@ func (r *Repo) ListModules(ctx context.Context, tag *string) ([]Module, error) {
 	for rows.Next() {
 		var m Module
 		var desc *string
-		if err := rows.Scan(&m.ID, &m.Title, &desc, &m.SortOrder, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.Title, &desc, &m.SortOrder, &m.CreatedAt, &m.OwnerID); err != nil {
 			return nil, err
 		}
 		if desc != nil {
@@ -67,13 +83,14 @@ func (r *Repo) ListModules(ctx context.Context, tag *string) ([]Module, error) {
 	return list, nil
 }
 
-func (r *Repo) CreateModule(ctx context.Context, title, description string, sortOrder int) (*Module, error) {
+func (r *Repo) CreateModule(ctx context.Context, title, description string, sortOrder int, ownerID *uuid.UUID) (*Module, error) {
 	var m Module
 	var desc *string
 	if description != "" {
 		desc = &description
 	}
 	var outDesc *string
+	var outOwnerID *uuid.UUID
 	// When sortOrder is 0, auto-assign the next value using a CTE — no transaction needed.
 	err := r.pool.QueryRow(ctx, `
 		WITH next_order AS (
@@ -82,16 +99,17 @@ func (r *Repo) CreateModule(ctx context.Context, title, description string, sort
 				ELSE $3
 			END AS val
 		)
-		INSERT INTO modules (title, description, sort_order)
-		SELECT $1, $2, val FROM next_order
-		RETURNING id, title, description, sort_order, created_at
-	`, title, desc, sortOrder).Scan(&m.ID, &m.Title, &outDesc, &m.SortOrder, &m.CreatedAt)
+		INSERT INTO modules (title, description, sort_order, owner_id)
+		SELECT $1, $2, val, $4 FROM next_order
+		RETURNING id, title, description, sort_order, created_at, owner_id
+	`, title, desc, sortOrder, ownerID).Scan(&m.ID, &m.Title, &outDesc, &m.SortOrder, &m.CreatedAt, &outOwnerID)
 	if err != nil {
 		return nil, err
 	}
 	if outDesc != nil {
 		m.Description = *outDesc
 	}
+	m.OwnerID = outOwnerID
 	return &m, nil
 }
 
@@ -177,11 +195,11 @@ func (r *Repo) CreateLesson(ctx context.Context, moduleID uuid.UUID, title, desc
 
 func (r *Repo) GetModuleByID(ctx context.Context, id uuid.UUID) (*Module, error) {
 	row := r.pool.QueryRow(ctx, `
-		SELECT id, title, description, sort_order, created_at
+		SELECT id, title, description, sort_order, created_at, owner_id
 		FROM modules WHERE id = $1`, id)
 	var m Module
 	var modDesc *string
-	err := row.Scan(&m.ID, &m.Title, &modDesc, &m.SortOrder, &m.CreatedAt)
+	err := row.Scan(&m.ID, &m.Title, &modDesc, &m.SortOrder, &m.CreatedAt, &m.OwnerID)
 	if err != nil {
 		return nil, err
 	}

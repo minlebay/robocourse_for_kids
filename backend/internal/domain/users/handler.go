@@ -19,6 +19,9 @@ type Repository interface {
 	GetByLogin(ctx context.Context, login string) (*UserWithPassword, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 	GetByIDWithPassword(ctx context.Context, id uuid.UUID) (*UserWithPassword, error)
+	GetRoles(ctx context.Context, userID uuid.UUID) ([]string, error)
+	GetRolesByUserIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]string, error)
+	HasRole(ctx context.Context, userID uuid.UUID, role string) (bool, error)
 	IsBlocked(ctx context.Context, id uuid.UUID) (bool, error)
 	List(ctx context.Context, limit, offset int) ([]User, error)
 	ListAll(ctx context.Context, limit, offset int) ([]User, error)
@@ -85,11 +88,18 @@ func (h *Handler) RegisterUser(c *gin.Context) {
 	if handleErr(c, err) {
 		return
 	}
-	token, err := h.generateToken(user.ID, user.Role, user.MustChangePassword)
+	roles, err := h.svc.GetRoles(c.Request.Context(), user.ID)
 	if handleErr(c, err) {
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"user": user, "token": token})
+	token, err := h.generateToken(user.ID, roles, user.MustChangePassword)
+	if handleErr(c, err) {
+		return
+	}
+	out := *user
+	out.Roles = roles
+	out.Role = PrimaryRole(roles)
+	c.JSON(http.StatusCreated, gin.H{"user": &out, "token": token})
 }
 
 type LoginRequest struct {
@@ -107,11 +117,18 @@ func (h *Handler) Login(c *gin.Context) {
 	if handleErr(c, err) {
 		return
 	}
-	token, err := h.generateToken(u.ID, u.Role, u.MustChangePassword)
+	roles, err := h.svc.GetRoles(c.Request.Context(), u.ID)
 	if handleErr(c, err) {
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"user": &u.User, "token": token})
+	token, err := h.generateToken(u.ID, roles, u.MustChangePassword)
+	if handleErr(c, err) {
+		return
+	}
+	out := u.User
+	out.Roles = roles
+	out.Role = PrimaryRole(roles)
+	c.JSON(http.StatusOK, gin.H{"user": &out, "token": token})
 }
 
 func (h *Handler) Me(c *gin.Context) {
@@ -130,7 +147,16 @@ func (h *Handler) Me(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	c.JSON(http.StatusOK, u)
+	roles, err := h.svc.GetRoles(c.Request.Context(), uid)
+	if err != nil {
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	out := *u
+	out.Roles = roles
+	out.Role = PrimaryRole(roles)
+	c.JSON(http.StatusOK, &out)
 }
 
 type UpdateMeRequest struct {
@@ -163,7 +189,16 @@ func (h *Handler) UpdateMe(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	c.JSON(http.StatusOK, u)
+	roles, err := h.svc.GetRoles(c.Request.Context(), uid)
+	if err != nil {
+		httplog.LogError(c, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	out := *u
+	out.Roles = roles
+	out.Role = PrimaryRole(roles)
+	c.JSON(http.StatusOK, &out)
 }
 
 func (h *Handler) ListUsers(c *gin.Context) {
@@ -224,12 +259,16 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
-	role, err := h.svc.ChangePassword(c.Request.Context(), uid, req.CurrentPassword, req.NewPassword)
+	_, err := h.svc.ChangePassword(c.Request.Context(), uid, req.CurrentPassword, req.NewPassword)
 	if handleErr(c, err) {
 		return
 	}
 	httplog.LogAudit(c, "change_password", "user", uid)
-	token, err := h.generateToken(uid, role, false)
+	roles, err := h.svc.GetRoles(c.Request.Context(), uid)
+	if handleErr(c, err) {
+		return
+	}
+	token, err := h.generateToken(uid, roles, false)
 	if handleErr(c, err) {
 		return
 	}
@@ -268,6 +307,8 @@ func (h *Handler) AdminCreateUser(c *gin.Context) {
 	if handleErr(c, err) {
 		return
 	}
+	// Ensure API response has roles and primary role (single role just created)
+	user.Roles = []string{user.Role}
 	c.JSON(http.StatusCreated, gin.H{"user": user, "temp_password": req.Password})
 }
 

@@ -4,6 +4,7 @@ import { useAuth } from '../features/auth/AuthContext'
 import { HeaderResumeHint } from '../features/progress'
 import { ThemeSelector } from '../features/theme'
 import { LanguageSelector } from '../features/i18n/LanguageSelector'
+import { hasTeacherAccess, hasAdminAccess } from '../shared/roles'
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth()
@@ -20,10 +21,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <>
                 <HeaderResumeHint />
                 <Link to="/progress">{t('nav.progress')}</Link>
-                {user.role === 'teacher' && (
-                  <Link to="/dashboard">{t('nav.dashboard')}</Link>
+                {hasTeacherAccess(user) && (
+                  <>
+                    <Link to="/my-courses">{t('nav.myCourses')}</Link>
+                    <Link to="/dashboard">{t('nav.dashboard')}</Link>
+                  </>
                 )}
-                {user.role === 'administrator' && (
+                {hasAdminAccess(user) && (
                   <Link to="/admin">{t('nav.admin')}</Link>
                 )}
                 <button type="button" onClick={logout}>

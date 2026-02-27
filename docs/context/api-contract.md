@@ -1,6 +1,6 @@
 # Сводка контракта API
 
-**Обновлено:** 2026-02-20
+**Обновлено:** 2026-02-27
 
 Базовый префикс: `/api/v1`. Полная спецификация: [backend/api/openapi.yaml](../../backend/api/openapi.yaml).
 
@@ -11,17 +11,17 @@
 | GET | /api/v1/health | Готовность и БД | — | — |
 | POST | /api/v1/auth/register | Регистрация | — | 10/мин |
 | POST | /api/v1/auth/login | Вход | — | 10/мин |
-| GET | /api/v1/auth/me | Текущий пользователь | JWT | — |
+| GET | /api/v1/auth/me | Текущий пользователь (в т.ч. поле `roles`: массив ролей) | JWT | — |
 | PATCH | /api/v1/auth/me | Обновить профиль (тема) | JWT | — |
 | POST | /api/v1/auth/change-password | Смена пароля (текущий + новый) | JWT | — |
-| GET | /api/v1/modules | Список модулей (?tag=...) | — | — |
-| POST | /api/v1/modules | Создать курс | JWT, teacher | — |
-| DELETE | /api/v1/modules/:id | Удалить курс | JWT, teacher | — |
-| GET | /api/v1/modules/:id | Модуль с уроками | — | — |
-| POST | /api/v1/modules/:id/lessons | Добавить урок в курс | JWT, teacher | — |
+| GET | /api/v1/modules | Список модулей. Query: ?tag=..., ?mine=true (только свои курсы, JWT) | — | — |
+| POST | /api/v1/modules | Создать курс (создатель становится владельцем) | JWT | — |
+| DELETE | /api/v1/modules/:id | Удалить курс | JWT, владелец или admin | — |
+| GET | /api/v1/modules/:id | Модуль с уроками (при JWT в ответе is_owner) | — | — |
+| POST | /api/v1/modules/:id/lessons | Добавить урок в курс | JWT, владелец или admin | — |
 | GET | /api/v1/lessons/:id | Урок (шаги, материалы, чек-лист, счётчики лайков/дизлайков) | — | — |
-| PUT | /api/v1/lessons/:id | Обновить урок | JWT, teacher | — |
-| DELETE | /api/v1/lessons/:id | Удалить урок | JWT, teacher | — |
+| PUT | /api/v1/lessons/:id | Обновить урок | JWT, владелец модуля или admin | — |
+| DELETE | /api/v1/lessons/:id | Удалить урок | JWT, владелец модуля или admin | — |
 | PUT | /api/v1/lessons/:id/reaction | Поставить лайк/дизлайк уроку. Тело: `{ "reaction": "like" \| "dislike" }` | JWT | — |
 | DELETE | /api/v1/lessons/:id/reaction | Убрать свою реакцию к уроку | JWT | — |
 | GET | /api/v1/lessons/:id/comments | Список комментариев (с полями likes_count, dislikes_count, user_reaction) | — | — |
@@ -38,7 +38,7 @@
 | GET | /api/v1/users | Список пользователей | JWT, teacher | — |
 | DELETE | /api/v1/users/:id | Удалить пользователя (не себя) | JWT, teacher | — |
 | GET | /api/v1/users/:id/progress | Прогресс ученика (404 если пользователь не найден) | JWT, teacher | — |
-| GET | /api/v1/admin/users | Список всех пользователей (включая is_blocked, email) | JWT, admin | — |
+| GET | /api/v1/admin/users | Список всех пользователей (включая is_blocked, email, roles) | JWT, admin | — |
 | POST | /api/v1/admin/users | Создать пользователя с temp_password | JWT, admin | — |
 | DELETE | /api/v1/admin/users/:id | Удалить пользователя (не себя) | JWT, admin | — |
 | POST | /api/v1/admin/users/:id/block | Заблокировать/разблокировать. Тело: `{ "block": true }` | JWT, admin | — |

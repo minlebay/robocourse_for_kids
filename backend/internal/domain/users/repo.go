@@ -2,8 +2,10 @@ package users
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -18,12 +20,18 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
 }
 
+// Create inserts a user and assigns one role in user_roles. Source of truth for roles is user_roles only;
+// users.role is no longer written (nullable, deprecated).
 func (r *Repo) Create(ctx context.Context, login, passwordHash, name, role, email string, mustChangePassword bool) (*User, error) {
 	id := uuid.New()
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO users (id, login, password_hash, name, role, theme, email, must_change_password)
-		VALUES ($1, $2, $3, $4, $5, 'default', NULLIF($6, ''), $7)`,
-		id, login, passwordHash, name, role, email, mustChangePassword)
+		INSERT INTO users (id, login, password_hash, name, theme, email, must_change_password)
+		VALUES ($1, $2, $3, $4, 'default', NULLIF($5, ''), $6)`,
+		id, login, passwordHash, name, email, mustChangePassword)
+	if err != nil {
+		return nil, err
+	}
+	_, err = r.pool.Exec(ctx, `INSERT INTO user_roles (user_id, role) VALUES ($1, $2)`, id, role)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +45,7 @@ func (r *Repo) Create(ctx context.Context, login, passwordHash, name, role, emai
 
 func (r *Repo) GetByLogin(ctx context.Context, login string) (*UserWithPassword, error) {
 	row := r.pool.QueryRow(ctx, `
-		SELECT id, login, password_hash, name, role, COALESCE(theme, 'default'), created_at,
+		SELECT id, login, password_hash, name, COALESCE(role::text, ''), COALESCE(theme, 'default'), created_at,
 		       email, must_change_password, is_blocked
 		FROM users WHERE login = $1`, login)
 	var u UserWithPassword
@@ -51,7 +59,7 @@ func (r *Repo) GetByLogin(ctx context.Context, login string) (*UserWithPassword,
 
 func (r *Repo) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	row := r.pool.QueryRow(ctx, `
-		SELECT id, login, name, role, COALESCE(theme, 'default'), created_at,
+		SELECT id, login, name, COALESCE(role::text, ''), COALESCE(theme, 'default'), created_at,
 		       email, must_change_password, is_blocked
 		FROM users WHERE id = $1`, id)
 	var u User
@@ -67,7 +75,7 @@ func (r *Repo) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 // Use only when password verification is required (e.g. ChangePassword).
 func (r *Repo) GetByIDWithPassword(ctx context.Context, id uuid.UUID) (*UserWithPassword, error) {
 	row := r.pool.QueryRow(ctx, `
-		SELECT id, login, password_hash, name, role, COALESCE(theme, 'default'), created_at,
+		SELECT id, login, password_hash, name, COALESCE(role::text, ''), COALESCE(theme, 'default'), created_at,
 		       email, must_change_password, is_blocked
 		FROM users WHERE id = $1`, id)
 	var u UserWithPassword
@@ -90,18 +98,74 @@ func (r *Repo) IsBlocked(ctx context.Context, id uuid.UUID) (bool, error) {
 	return blocked, nil
 }
 
-// List returns students only (role = 'student'), for use by teacher endpoints.
+// GetRoles returns the list of roles for the user from user_roles.
+func (r *Repo) GetRoles(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `SELECT role FROM user_roles WHERE user_id = $1 ORDER BY role`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var roles []string
+	for rows.Next() {
+		var role string
+		if err := rows.Scan(&role); err != nil {
+			return nil, err
+		}
+		roles = append(roles, role)
+	}
+	return roles, rows.Err()
+}
+
+// HasRole returns true if the user has the given role in user_roles.
+func (r *Repo) HasRole(ctx context.Context, userID uuid.UUID, role string) (bool, error) {
+	var n int
+	err := r.pool.QueryRow(ctx, `SELECT 1 FROM user_roles WHERE user_id = $1 AND role = $2`, userID, role).Scan(&n)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+// GetRolesByUserIDs returns roles per user for the given IDs (batch). Users with no roles get an empty slice.
+func (r *Repo) GetRolesByUserIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]string, error) {
+	if len(ids) == 0 {
+		return map[uuid.UUID][]string{}, nil
+	}
+	rows, err := r.pool.Query(ctx, `SELECT user_id, role FROM user_roles WHERE user_id = ANY($1) ORDER BY user_id, role`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[uuid.UUID][]string)
+	for _, id := range ids {
+		out[id] = nil
+	}
+	for rows.Next() {
+		var uid uuid.UUID
+		var role string
+		if err := rows.Scan(&uid, &role); err != nil {
+			return nil, err
+		}
+		out[uid] = append(out[uid], role)
+	}
+	return out, rows.Err()
+}
+
+// List returns users that have the student role (for teacher endpoints).
 // limit/offset control pagination; pass limit=0 to use the default cap (500).
 func (r *Repo) List(ctx context.Context, limit, offset int) ([]User, error) {
 	if limit <= 0 || limit > 500 {
 		limit = 500
 	}
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, login, name, role, COALESCE(theme, 'default'), created_at,
-		       email, must_change_password, is_blocked
-		FROM users
-		WHERE role = 'student'
-		ORDER BY created_at
+		SELECT u.id, u.login, u.name, COALESCE(u.role::text, ''), COALESCE(u.theme, 'default'), u.created_at,
+		       u.email, u.must_change_password, u.is_blocked
+		FROM users u
+		INNER JOIN user_roles ur ON u.id = ur.user_id AND ur.role = 'student'
+		ORDER BY u.created_at
 		LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, err
@@ -117,7 +181,7 @@ func (r *Repo) ListAll(ctx context.Context, limit, offset int) ([]User, error) {
 		limit = 500
 	}
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, login, name, role, COALESCE(theme, 'default'), created_at,
+		SELECT id, login, name, COALESCE(role::text, ''), COALESCE(theme, 'default'), created_at,
 		       email, must_change_password, is_blocked
 		FROM users
 		ORDER BY created_at
@@ -195,7 +259,7 @@ func (r *Repo) GetStats(ctx context.Context) (usersCount, modulesCount, lessonsC
 
 func (r *Repo) GetActivity(ctx context.Context, limit int) ([]User, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, login, name, role, COALESCE(theme, 'default'), created_at,
+		SELECT id, login, name, COALESCE(role::text, ''), COALESCE(theme, 'default'), created_at,
 		       email, must_change_password, is_blocked
 		FROM users ORDER BY created_at DESC LIMIT $1`, limit)
 	if err != nil {

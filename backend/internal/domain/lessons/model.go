@@ -13,6 +13,8 @@ type Module struct {
 	SortOrder   int        `json:"sort_order"`
 	Lessons     []Lesson   `json:"lessons,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
+	OwnerID     *uuid.UUID `json:"owner_id,omitempty"` // nil for legacy modules
+	IsOwner     bool       `json:"is_owner,omitempty"` // true when current user is owner (set by handler)
 }
 
 type Lesson struct {

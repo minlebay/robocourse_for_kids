@@ -25,6 +25,9 @@ type mockRepo struct {
 	GetByLoginFn               func(ctx context.Context, login string) (*UserWithPassword, error)
 	GetByIDFn                  func(ctx context.Context, id uuid.UUID) (*User, error)
 	GetByIDWithPasswordFn      func(ctx context.Context, id uuid.UUID) (*UserWithPassword, error)
+	GetRolesFn                 func(ctx context.Context, userID uuid.UUID) ([]string, error)
+	GetRolesByUserIDsFn        func(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]string, error)
+	HasRoleFn                  func(ctx context.Context, userID uuid.UUID, role string) (bool, error)
 	IsBlockedFn                func(ctx context.Context, id uuid.UUID) (bool, error)
 	ListFn                     func(ctx context.Context, limit, offset int) ([]User, error)
 	ListAllFn                  func(ctx context.Context, limit, offset int) ([]User, error)
@@ -63,6 +66,31 @@ func (m *mockRepo) GetByIDWithPassword(ctx context.Context, id uuid.UUID) (*User
 		return m.GetByIDWithPasswordFn(ctx, id)
 	}
 	return nil, pgx.ErrNoRows
+}
+
+func (m *mockRepo) GetRoles(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	if m.GetRolesFn != nil {
+		return m.GetRolesFn(ctx, userID)
+	}
+	return []string{RoleStudent}, nil
+}
+
+func (m *mockRepo) GetRolesByUserIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]string, error) {
+	if m.GetRolesByUserIDsFn != nil {
+		return m.GetRolesByUserIDsFn(ctx, ids)
+	}
+	out := make(map[uuid.UUID][]string)
+	for _, id := range ids {
+		out[id] = []string{RoleStudent}
+	}
+	return out, nil
+}
+
+func (m *mockRepo) HasRole(ctx context.Context, userID uuid.UUID, role string) (bool, error) {
+	if m.HasRoleFn != nil {
+		return m.HasRoleFn(ctx, userID, role)
+	}
+	return role == RoleStudent, nil
 }
 
 func (m *mockRepo) IsBlocked(ctx context.Context, id uuid.UUID) (bool, error) {
@@ -471,6 +499,12 @@ func TestDeleteUser_CannotDeleteTeacher(t *testing.T) {
 		GetByIDFn: func(ctx context.Context, id uuid.UUID) (*User, error) {
 			return &User{ID: id, Role: RoleTeacher}, nil
 		},
+		HasRoleFn: func(ctx context.Context, userID uuid.UUID, role string) (bool, error) {
+			if userID == targetID && role == RoleStudent {
+				return false, nil // teacher does not have student role
+			}
+			return false, nil
+		},
 	}
 	h := NewHandler(NewService(repo, ""), "s")
 
@@ -492,6 +526,12 @@ func TestDeleteUser_CannotDeleteAdmin(t *testing.T) {
 	repo := &mockRepo{
 		GetByIDFn: func(ctx context.Context, id uuid.UUID) (*User, error) {
 			return &User{ID: id, Role: RoleAdministrator}, nil
+		},
+		HasRoleFn: func(ctx context.Context, userID uuid.UUID, role string) (bool, error) {
+			if userID == targetID && role == RoleStudent {
+				return false, nil // admin does not have student role (for delete restriction)
+			}
+			return false, nil
 		},
 	}
 	h := NewHandler(NewService(repo, ""), "s")

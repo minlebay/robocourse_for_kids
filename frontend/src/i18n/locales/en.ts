@@ -12,12 +12,18 @@ export const en = {
   },
   nav: {
     catalog: 'Catalog',
+    myCourses: 'My courses',
     progress: 'My progress',
     dashboard: 'Dashboard',
     admin: 'Administration',
     login: 'Login',
     register: 'Register',
     logout: 'Log out',
+  },
+  myCourses: {
+    title: 'My courses',
+    heading: 'My courses',
+    empty: "You don't have any courses yet. Create one from the catalog.",
   },
   auth: {
     title: 'Login',

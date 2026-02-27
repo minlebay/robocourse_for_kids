@@ -156,20 +156,35 @@ func (s *Service) UpdateLesson(ctx context.Context, id uuid.UUID, title, descrip
 	return lesson, nil
 }
 
-// CreateModule validates, sanitizes, and creates a module.
-func (s *Service) CreateModule(ctx context.Context, title, description string, sortOrder int) (*Module, error) {
+// CreateModule validates, sanitizes, and creates a module. ownerID is set as the module owner.
+func (s *Service) CreateModule(ctx context.Context, title, description string, sortOrder int, ownerID *uuid.UUID) (*Module, error) {
+	if title == "" {
+		return nil, httpErr(http.StatusBadRequest, "title must not be empty")
+	}
 	if len(title) > MaxTitleLength {
 		return nil, httpErr(http.StatusBadRequest, fmt.Sprintf("title must be at most %d characters", MaxTitleLength))
 	}
 	if len(description) > MaxDescriptionLength {
 		return nil, httpErr(http.StatusBadRequest, fmt.Sprintf("description must be at most %d characters", MaxDescriptionLength))
 	}
-	return s.repo.CreateModule(ctx, sanitize.Description(title), sanitize.Description(description), sortOrder)
+	return s.repo.CreateModule(ctx, sanitize.Description(title), sanitize.Description(description), sortOrder, ownerID)
 }
 
-// ListModules lists modules, with optional tag filter.
-func (s *Service) ListModules(ctx context.Context, tag *string) ([]Module, error) {
-	return s.repo.ListModules(ctx, tag)
+// GetLessonForEditCheck returns a lesson by ID for permission check (needs ModuleID). Returns 404 if not found.
+func (s *Service) GetLessonForEditCheck(ctx context.Context, id uuid.UUID) (*Lesson, error) {
+	lesson, err := s.repo.GetLessonByID(ctx, id)
+	if err != nil {
+		if isNotFound(err) {
+			return nil, httpErr(http.StatusNotFound, "lesson not found")
+		}
+		return nil, err
+	}
+	return lesson, nil
+}
+
+// ListModules lists modules, with optional tag filter and optional owner filter (mine=true).
+func (s *Service) ListModules(ctx context.Context, tag *string, ownerID *uuid.UUID) ([]Module, error) {
+	return s.repo.ListModules(ctx, tag, ownerID)
 }
 
 // GetModuleByID returns a module with its lessons.

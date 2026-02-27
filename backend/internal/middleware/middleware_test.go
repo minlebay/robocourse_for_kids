@@ -62,7 +62,7 @@ func TestRequireAuth_RejectsAnonymous(t *testing.T) {
 
 func TestRequireTeacher_AllowsTeacher(t *testing.T) {
 	r := newRouter(
-		func(c *gin.Context) { c.Set("user_role", "teacher"); c.Next() },
+		func(c *gin.Context) { c.Set("user_roles", []string{"teacher"}); c.Next() },
 		RequireTeacher(),
 	)
 	w := get(r, "/test")
@@ -71,7 +71,7 @@ func TestRequireTeacher_AllowsTeacher(t *testing.T) {
 
 func TestRequireTeacher_AllowsAdministrator(t *testing.T) {
 	r := newRouter(
-		func(c *gin.Context) { c.Set("user_role", "administrator"); c.Next() },
+		func(c *gin.Context) { c.Set("user_roles", []string{"administrator"}); c.Next() },
 		RequireTeacher(),
 	)
 	w := get(r, "/test")
@@ -80,7 +80,7 @@ func TestRequireTeacher_AllowsAdministrator(t *testing.T) {
 
 func TestRequireTeacher_RejectsStudent(t *testing.T) {
 	r := newRouter(
-		func(c *gin.Context) { c.Set("user_role", "student"); c.Next() },
+		func(c *gin.Context) { c.Set("user_roles", []string{"student"}); c.Next() },
 		RequireTeacher(),
 	)
 	w := get(r, "/test")
@@ -101,7 +101,7 @@ func TestRequireTeacher_RejectsNoRole(t *testing.T) {
 
 func TestRequireAdmin_AllowsAdministrator(t *testing.T) {
 	r := newRouter(
-		func(c *gin.Context) { c.Set("user_role", "administrator"); c.Next() },
+		func(c *gin.Context) { c.Set("user_roles", []string{"administrator"}); c.Next() },
 		RequireAdmin(),
 	)
 	w := get(r, "/test")
@@ -110,7 +110,7 @@ func TestRequireAdmin_AllowsAdministrator(t *testing.T) {
 
 func TestRequireAdmin_RejectsTeacher(t *testing.T) {
 	r := newRouter(
-		func(c *gin.Context) { c.Set("user_role", "teacher"); c.Next() },
+		func(c *gin.Context) { c.Set("user_roles", []string{"teacher"}); c.Next() },
 		RequireAdmin(),
 	)
 	w := get(r, "/test")
@@ -123,7 +123,7 @@ func TestRequireAdmin_RejectsTeacher(t *testing.T) {
 
 func TestRequireAdmin_RejectsStudent(t *testing.T) {
 	r := newRouter(
-		func(c *gin.Context) { c.Set("user_role", "student"); c.Next() },
+		func(c *gin.Context) { c.Set("user_roles", []string{"student"}); c.Next() },
 		RequireAdmin(),
 	)
 	w := get(r, "/test")
@@ -242,16 +242,16 @@ func TestRateLimiter_TracksIPsSeparately(t *testing.T) {
 // ==================== Auth: IsUserBlocked error ====================
 
 type mockAuthProvider struct {
-	parseTokenFn    func(string) (uuid.UUID, string, bool, time.Time, error)
+	parseTokenFn    func(string) (uuid.UUID, []string, bool, time.Time, error)
 	isUserBlockedFn func(context.Context, uuid.UUID) (bool, error)
-	newTokenFn      func(uuid.UUID, string, bool) (string, error)
+	newTokenFn      func(uuid.UUID, []string, bool) (string, error)
 }
 
-func (m *mockAuthProvider) ParseToken(s string) (uuid.UUID, string, bool, time.Time, error) {
+func (m *mockAuthProvider) ParseToken(s string) (uuid.UUID, []string, bool, time.Time, error) {
 	if m.parseTokenFn != nil {
 		return m.parseTokenFn(s)
 	}
-	return uuid.Nil, "", false, time.Time{}, errors.New("invalid")
+	return uuid.Nil, nil, false, time.Time{}, errors.New("invalid")
 }
 
 func (m *mockAuthProvider) IsUserBlocked(ctx context.Context, id uuid.UUID) (bool, error) {
@@ -261,9 +261,9 @@ func (m *mockAuthProvider) IsUserBlocked(ctx context.Context, id uuid.UUID) (boo
 	return false, nil
 }
 
-func (m *mockAuthProvider) NewToken(userID uuid.UUID, role string, mustChangePassword bool) (string, error) {
+func (m *mockAuthProvider) NewToken(userID uuid.UUID, roles []string, mustChangePassword bool) (string, error) {
 	if m.newTokenFn != nil {
-		return m.newTokenFn(userID, role, mustChangePassword)
+		return m.newTokenFn(userID, roles, mustChangePassword)
 	}
 	return "", nil
 }
@@ -271,8 +271,8 @@ func (m *mockAuthProvider) NewToken(userID uuid.UUID, role string, mustChangePas
 func TestAuth_Returns401WhenIsUserBlockedReturnsError(t *testing.T) {
 	// Valid token parse, but IsUserBlocked returns error (e.g. user deleted) → 401
 	mock := &mockAuthProvider{
-		parseTokenFn: func(string) (uuid.UUID, string, bool, time.Time, error) {
-			return uuid.New(), "student", false, time.Now().Add(time.Hour), nil
+		parseTokenFn: func(string) (uuid.UUID, []string, bool, time.Time, error) {
+			return uuid.New(), []string{"student"}, false, time.Now().Add(time.Hour), nil
 		},
 		isUserBlockedFn: func(context.Context, uuid.UUID) (bool, error) {
 			return false, errors.New("user not found")

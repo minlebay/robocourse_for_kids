@@ -10,6 +10,8 @@ import (
 	"github.com/google/uuid"
 	"learn_kids/backend/internal/httplog"
 	"learn_kids/backend/internal/middleware"
+	"learn_kids/backend/internal/requestcontext"
+	"learn_kids/backend/internal/domain/users"
 )
 
 // Length limits for validation (defence against huge payloads and DB bloat).
@@ -23,9 +25,9 @@ const (
 
 // Repository defines the data access interface for lessons and modules.
 type Repository interface {
-	ListModules(ctx context.Context, tag *string) ([]Module, error)
+	ListModules(ctx context.Context, tag *string, ownerID *uuid.UUID) ([]Module, error)
 	GetModuleByID(ctx context.Context, id uuid.UUID) (*Module, error)
-	CreateModule(ctx context.Context, title, description string, sortOrder int) (*Module, error)
+	CreateModule(ctx context.Context, title, description string, sortOrder int, ownerID *uuid.UUID) (*Module, error)
 	DeleteModule(ctx context.Context, id uuid.UUID) (bool, error)
 	GetLessonByID(ctx context.Context, id uuid.UUID) (*Lesson, error)
 	CreateLesson(ctx context.Context, moduleID uuid.UUID, title, description, lessonType string, sortOrder int, steps []LessonStep) (*Lesson, error)
@@ -61,6 +63,27 @@ func handleErr(c *gin.Context, err error) bool {
 	return true
 }
 
+func hasRole(roles []string, want string) bool {
+	for _, r := range roles {
+		if r == want {
+			return true
+		}
+	}
+	return false
+}
+
+// canEditModule returns true if the user may edit this module (admin or owner).
+// Permission is based only on role "administrator" and modules.owner_id; the role "course_owner" in user_roles is not checked.
+func canEditModule(roles []string, mod *Module, userID uuid.UUID) bool {
+	if hasRole(roles, users.RoleAdministrator) {
+		return true
+	}
+	if mod.OwnerID != nil && *mod.OwnerID == userID {
+		return true
+	}
+	return false
+}
+
 func (h *Handler) ListModules(c *gin.Context) {
 	var tag *string
 	if t := c.Query("tag"); t != "" {
@@ -70,11 +93,27 @@ func (h *Handler) ListModules(c *gin.Context) {
 		}
 		tag = &t
 	}
-	list, err := h.svc.ListModules(c.Request.Context(), tag)
+	var ownerID *uuid.UUID
+	if c.Query("mine") == "true" {
+		uid := requestcontext.GetUserID(c)
+		if uid == uuid.Nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+		ownerID = &uid
+	}
+	list, err := h.svc.ListModules(c.Request.Context(), tag, ownerID)
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
+	}
+	// Set is_owner for each module when user is authenticated
+	uid := requestcontext.GetUserID(c)
+	if uid != uuid.Nil {
+		for i := range list {
+			list[i].IsOwner = list[i].OwnerID != nil && *list[i].OwnerID == uid
+		}
 	}
 	c.JSON(http.StatusOK, list)
 }
@@ -89,6 +128,10 @@ func (h *Handler) GetModule(c *gin.Context) {
 	if handleErr(c, err) {
 		return
 	}
+	uid := requestcontext.GetUserID(c)
+	if uid != uuid.Nil {
+		mod.IsOwner = mod.OwnerID != nil && *mod.OwnerID == uid
+	}
 	c.JSON(http.StatusOK, mod)
 }
 
@@ -99,15 +142,21 @@ type CreateModuleRequest struct {
 }
 
 func (h *Handler) CreateModule(c *gin.Context) {
+	uid := requestcontext.GetUserID(c)
+	if uid == uuid.Nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
 	var req CreateModuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
-	mod, err := h.svc.CreateModule(c.Request.Context(), req.Title, req.Description, req.SortOrder)
+	mod, err := h.svc.CreateModule(c.Request.Context(), req.Title, req.Description, req.SortOrder, &uid)
 	if handleErr(c, err) {
 		return
 	}
+	mod.IsOwner = true
 	c.JSON(http.StatusCreated, mod)
 }
 
@@ -115,6 +164,17 @@ func (h *Handler) DeleteModule(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid module id"})
+		return
+	}
+	uid := requestcontext.GetUserID(c)
+	rolesVal, _ := c.Get("user_roles")
+	roles, _ := rolesVal.([]string)
+	mod, err := h.svc.GetModuleByID(c.Request.Context(), id)
+	if handleErr(c, err) {
+		return
+	}
+	if !canEditModule(roles, mod, uid) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "only the course owner or administrator can delete this module"})
 		return
 	}
 	deleted, err := h.svc.DeleteModule(c.Request.Context(), id)
@@ -134,6 +194,21 @@ func (h *Handler) DeleteLesson(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid lesson id"})
+		return
+	}
+	uid := requestcontext.GetUserID(c)
+	rolesVal, _ := c.Get("user_roles")
+	roles, _ := rolesVal.([]string)
+	lesson, err := h.svc.GetLessonForEditCheck(c.Request.Context(), id)
+	if handleErr(c, err) {
+		return
+	}
+	mod, err := h.svc.GetModuleByID(c.Request.Context(), lesson.ModuleID)
+	if handleErr(c, err) {
+		return
+	}
+	if !canEditModule(roles, mod, uid) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "only the course owner or administrator can delete this lesson"})
 		return
 	}
 	deleted, err := h.svc.DeleteLesson(c.Request.Context(), id)
@@ -161,6 +236,17 @@ func (h *Handler) CreateLesson(c *gin.Context) {
 	moduleID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid module id"})
+		return
+	}
+	uid := requestcontext.GetUserID(c)
+	rolesVal, _ := c.Get("user_roles")
+	roles, _ := rolesVal.([]string)
+	mod, err := h.svc.GetModuleByID(c.Request.Context(), moduleID)
+	if handleErr(c, err) {
+		return
+	}
+	if !canEditModule(roles, mod, uid) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "only the course owner or administrator can add lessons to this module"})
 		return
 	}
 	var req CreateLessonRequest
@@ -203,6 +289,21 @@ func (h *Handler) UpdateLesson(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid lesson id"})
 		return
 	}
+	uid := requestcontext.GetUserID(c)
+	rolesVal, _ := c.Get("user_roles")
+	roles, _ := rolesVal.([]string)
+	lesson, err := h.svc.GetLessonForEditCheck(c.Request.Context(), id)
+	if handleErr(c, err) {
+		return
+	}
+	mod, err := h.svc.GetModuleByID(c.Request.Context(), lesson.ModuleID)
+	if handleErr(c, err) {
+		return
+	}
+	if !canEditModule(roles, mod, uid) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "only the course owner or administrator can update this lesson"})
+		return
+	}
 	var body UpdateLessonRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
@@ -214,7 +315,7 @@ func (h *Handler) UpdateLesson(c *gin.Context) {
 	} else {
 		rawSteps = nil
 	}
-	lesson, err := h.svc.UpdateLesson(c.Request.Context(), id, body.Title, body.Description, rawSteps)
+	lesson, err = h.svc.UpdateLesson(c.Request.Context(), id, body.Title, body.Description, rawSteps)
 	if handleErr(c, err) {
 		return
 	}

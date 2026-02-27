@@ -132,11 +132,11 @@ export const auth = {
 }
 
 export const modules = {
-  list: (params?: { platform?: string; tag?: string }) => {
+  list: (params?: { platform?: string; tag?: string; mine?: boolean }) => {
     const filtered: Record<string, string> = {}
     if (params) {
       for (const [k, v] of Object.entries(params)) {
-        if (v !== undefined && v !== null) filtered[k] = v
+        if (v !== undefined && v !== null) filtered[k] = String(v)
       }
     }
     const q = new URLSearchParams(filtered).toString()

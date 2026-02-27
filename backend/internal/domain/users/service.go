@@ -149,7 +149,11 @@ func (s *Service) ValidateDeleteUser(ctx context.Context, currentID, targetID uu
 		}
 		return nil, err
 	}
-	if target.Role != RoleStudent {
+	hasStudent, err := s.repo.HasRole(ctx, targetID, RoleStudent)
+	if err != nil {
+		return nil, err
+	}
+	if !hasStudent {
 		return nil, httpErr(http.StatusForbidden, "teachers can only delete students")
 	}
 	return target, nil
@@ -239,19 +243,58 @@ func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
+// GetRoles returns the list of roles for the user.
+func (s *Service) GetRoles(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	return s.repo.GetRoles(ctx, userID)
+}
+
+// HasRole returns true if the user has the given role.
+func (s *Service) HasRole(ctx context.Context, userID uuid.UUID, role string) (bool, error) {
+	return s.repo.HasRole(ctx, userID, role)
+}
+
 // UpdateTheme updates the user's UI theme preference.
 func (s *Service) UpdateTheme(ctx context.Context, id uuid.UUID, theme string) error {
 	return s.repo.UpdateTheme(ctx, id, theme)
 }
 
-// List returns students (for teacher dashboard).
+// List returns students (for teacher dashboard) with roles attached from user_roles.
 func (s *Service) List(ctx context.Context, limit, offset int) ([]User, error) {
-	return s.repo.List(ctx, limit, offset)
+	list, err := s.repo.List(ctx, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	return s.attachRoles(ctx, list)
 }
 
-// ListAll returns all users (admin only).
+// ListAll returns all users (admin only) with roles attached from user_roles.
 func (s *Service) ListAll(ctx context.Context, limit, offset int) ([]User, error) {
-	return s.repo.ListAll(ctx, limit, offset)
+	list, err := s.repo.ListAll(ctx, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	return s.attachRoles(ctx, list)
+}
+
+// attachRoles fills Roles and Role (primary) for each user from user_roles.
+func (s *Service) attachRoles(ctx context.Context, list []User) ([]User, error) {
+	if len(list) == 0 {
+		return list, nil
+	}
+	ids := make([]uuid.UUID, 0, len(list))
+	for i := range list {
+		ids = append(ids, list[i].ID)
+	}
+	rolesByID, err := s.repo.GetRolesByUserIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	for i := range list {
+		roles := rolesByID[list[i].ID]
+		list[i].Roles = roles
+		list[i].Role = PrimaryRole(roles)
+	}
+	return list, nil
 }
 
 // Delete removes a user by ID.
@@ -269,9 +312,13 @@ func (s *Service) GetStats(ctx context.Context) (usersCount, modulesCount, lesso
 	return s.repo.GetStats(ctx)
 }
 
-// GetActivity returns recently registered users.
+// GetActivity returns recently registered users with roles attached from user_roles.
 func (s *Service) GetActivity(ctx context.Context, limit int) ([]User, error) {
-	return s.repo.GetActivity(ctx, limit)
+	list, err := s.repo.GetActivity(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+	return s.attachRoles(ctx, list)
 }
 
 // generateTempPassword generates a cryptographically random alphanumeric password.

@@ -12,12 +12,18 @@ export const ru = {
   },
   nav: {
     catalog: 'Каталог',
+    myCourses: 'Мои курсы',
     progress: 'Мой прогресс',
     dashboard: 'Дашборд',
     admin: 'Администрирование',
     login: 'Вход',
     register: 'Регистрация',
     logout: 'Выйти',
+  },
+  myCourses: {
+    title: 'Мои курсы',
+    heading: 'Мои курсы',
+    empty: 'У вас пока нет курсов. Создайте курс в каталоге.',
   },
   auth: {
     title: 'Вход',

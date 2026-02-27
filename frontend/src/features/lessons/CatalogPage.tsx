@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { modules } from '../../shared/api'
 import { useAuth } from '../auth/AuthContext'
+import { hasTeacherAccess } from '../../shared/roles'
 import type { Module } from '../../shared/types'
 import { PageWithToc, type TocItem } from './PageWithToc'
 
@@ -64,7 +65,7 @@ export function CatalogPage() {
     <PageWithToc title={t('catalog.title')} items={tocItems}>
       <div className="catalog">
         <h1>{t('catalog.heading')}</h1>
-        {user?.role === 'teacher' && (
+        {hasTeacherAccess(user) && (
           <div className="catalog-teacher-actions">
             {!showCreateForm ? (
               <button type="button" className="button-primary" onClick={() => setShowCreateForm(true)}>

@@ -434,8 +434,7 @@
   border: none;
 }
 
-/* Чек-лист */
-.checklist ul {
+.checklist {
   list-style: none;
   padding-left: 0;
 }
