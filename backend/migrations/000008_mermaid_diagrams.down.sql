@@ -1,2 +1,0 @@
--- Schematics removed: cannot revert to /schematics/ links (files deleted).
--- Down migration is a no-op; mermaid diagrams remain.

@@ -20,6 +20,7 @@
 | [reactions.md](reactions.md) | Лайки и дизлайки к урокам и комментариям |
 | [parent-dashboard.md](parent-dashboard.md) | Дашборд родителя, доступ к прогрессу учеников |
 | [api-contract.md](api-contract.md) | Сводка эндпоинтов и форматов (выжимка OpenAPI) |
+| [migrations.md](migrations.md) | Миграции БД: схема, сид админа, предопределённые курсы |
 | [frontend-review.md](frontend-review.md) | Ревью фронтенда (структура, тесты, линтер, рекомендации) |
 | [i18n.md](i18n.md) | Мультиязычность: ru/en, i18next, ключи, даты, голосовой ввод |
 

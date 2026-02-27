@@ -1,1 +1,0 @@
--- Enum value 'simulator' cannot be removed without recreating the type.
