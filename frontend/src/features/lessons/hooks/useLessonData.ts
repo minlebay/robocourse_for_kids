@@ -8,6 +8,7 @@ export function useLessonData(lessonId: string | undefined, isAuthenticated: boo
   const [progress, setProgress] = useState<UserProgress | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [locked, setLocked] = useState(false)
   const [refetchKey, setRefetchKey] = useState(0)
 
   // Сброс состояния при смене урока во время рендера (паттерн React «adjusting state based on props»).
@@ -20,6 +21,7 @@ export function useLessonData(lessonId: string | undefined, isAuthenticated: boo
     setModule(null)
     setProgress(null)
     setError('')
+    setLocked(false)
   }
 
   useEffect(() => {
@@ -42,7 +44,15 @@ export function useLessonData(lessonId: string | undefined, isAuthenticated: boo
             .catch(() => { if (!cancelled) setModule(null) })
         }
       })
-      .catch((err) => { if (!cancelled) setError(err.message) })
+      .catch((err) => {
+        if (!cancelled) {
+          if (err.message === 'auth_required') {
+            setLocked(true)
+          } else {
+            setError(err.message)
+          }
+        }
+      })
       .finally(() => { if (!cancelled) setLoading(false) })
 
     return () => { cancelled = true }
@@ -54,5 +64,5 @@ export function useLessonData(lessonId: string | undefined, isAuthenticated: boo
     setRefetchKey((k) => k + 1)
   }, [])
 
-  return { lesson, module_, progress, loading, error, load, setLesson, setProgress, setError }
+  return { lesson, module_, progress, loading, error, locked, load, setLesson, setProgress, setError }
 }

@@ -234,6 +234,9 @@ func (h *Handler) CreateLesson(c *gin.Context) {
 	c.JSON(http.StatusCreated, lesson)
 }
 
+// FreeLessonsCount is the number of lessons (by sort_order) accessible without login.
+const FreeLessonsCount = 3
+
 func (h *Handler) GetLesson(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -248,6 +251,12 @@ func (h *Handler) GetLesson(c *gin.Context) {
 		}
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	// Free preview: only the first FreeLessonsCount lessons (sort_order 0..FreeLessonsCount-1)
+	// are accessible without authentication.
+	if middleware.UserID(c) == uuid.Nil && lesson.SortOrder >= FreeLessonsCount {
+		c.JSON(http.StatusForbidden, gin.H{"error": "auth_required"})
 		return
 	}
 	if h.reactionProvider != nil {

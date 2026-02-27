@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { PageWithToc, type TocItem } from './PageWithToc'
@@ -14,7 +14,7 @@ export function LessonPage() {
   const { user } = useAuth()
   const { t } = useTranslation()
 
-  const { lesson, module_, progress, loading, error, load, setLesson, setProgress, setError } = useLessonData(
+  const { lesson, module_, progress, loading, error, locked, load, setLesson, setProgress, setError } = useLessonData(
     id,
     !!user
   )
@@ -60,6 +60,21 @@ export function LessonPage() {
 
   if (loading) return <p>{t('common.loading')}</p>
   if (error) return <p className="error">{error}</p>
+  if (locked) {
+    return (
+      <div className={styles.root}>
+        <div className={styles.locked}>
+          <div className={styles.lockedIcon}>🔒</div>
+          <h2>{t('lesson.locked')}</h2>
+          <p>{t('lesson.lockedDesc')}</p>
+          <div className={styles.lockedActions}>
+            <Link to="/login" className="button-primary">{t('lesson.lockedLogin')}</Link>
+            <Link to="/register" className="button-secondary">{t('lesson.lockedRegister')}</Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
   if (!lesson) return <p className="error">{t('lesson.notFound')}</p>
 
   const status = getLessonStatus()

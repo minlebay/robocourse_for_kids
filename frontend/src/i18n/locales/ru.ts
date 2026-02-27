@@ -106,6 +106,11 @@ export const ru = {
     reactions: 'Реакции к уроку',
     confirmDelete: 'Удалить урок?',
     confirmDeleteMessage: 'Удалить урок «{{title}}»?',
+    locked: 'Урок недоступен',
+    lockedDesc: 'Первые три урока открыты бесплатно. Зарегистрируйтесь или войдите, чтобы продолжить курс.',
+    lockedLogin: 'Войти',
+    lockedRegister: 'Зарегистрироваться',
+    lockedBadge: 'Закрыт',
   },
   progress: {
     statusLabel: 'Статус',

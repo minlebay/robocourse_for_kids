@@ -8,6 +8,8 @@ import { ConfirmModal } from '../../components'
 import { MarkdownStepEditor } from './MarkdownStepEditor'
 import { PageWithToc, type TocItem } from './PageWithToc'
 
+const FREE_LESSONS_COUNT = 3
+
 type ConfirmKind = { kind: 'module' } | { kind: 'lesson'; lessonId: string; lessonTitle: string }
 
 export function ModulePage() {
@@ -274,25 +276,36 @@ export function ModulePage() {
         )}
         {orderedLessons.length > 0 ? (
           <ul className="lesson-list">
-            {orderedLessons.map((lesson) => (
-              <li key={lesson.id} className="lesson-list-item">
-                <Link to={`/lessons/${lesson.id}`}>{lesson.title}</Link>
-                {user?.role === 'teacher' && (
-                  <button
-                    type="button"
-                    className="lesson-list-delete button-danger-outline"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      handleDeleteLesson(lesson.id, lesson.title)
-                    }}
-                    disabled={deletingLessonId === lesson.id}
-                    title={t('module.confirmDeleteLesson')}
-                  >
-                    {deletingLessonId === lesson.id ? '…' : t('common.delete')}
-                  </button>
-                )}
-              </li>
-            ))}
+            {orderedLessons.map((lesson) => {
+              const isLocked = !user && lesson.sort_order >= FREE_LESSONS_COUNT
+              return (
+                <li key={lesson.id} className={`lesson-list-item${isLocked ? ' lesson-list-item--locked' : ''}`}>
+                  {isLocked ? (
+                    <span className="lesson-list-locked-title">
+                      <span className="lesson-list-lock-icon">🔒</span>
+                      {lesson.title}
+                      <span className="lesson-list-locked-badge">{t('lesson.lockedBadge')}</span>
+                    </span>
+                  ) : (
+                    <Link to={`/lessons/${lesson.id}`}>{lesson.title}</Link>
+                  )}
+                  {user?.role === 'teacher' && (
+                    <button
+                      type="button"
+                      className="lesson-list-delete button-danger-outline"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        handleDeleteLesson(lesson.id, lesson.title)
+                      }}
+                      disabled={deletingLessonId === lesson.id}
+                      title={t('module.confirmDeleteLesson')}
+                    >
+                      {deletingLessonId === lesson.id ? '…' : t('common.delete')}
+                    </button>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         ) : (
           <p>{t('module.noLessons')}</p>

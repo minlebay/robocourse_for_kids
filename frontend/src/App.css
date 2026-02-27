@@ -1057,6 +1057,33 @@ body {
   text-decoration: underline;
 }
 
+.module-page .lesson-list-item--locked {
+  opacity: 0.6;
+}
+
+.module-page .lesson-list-locked-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  cursor: default;
+}
+
+.module-page .lesson-list-lock-icon {
+  font-size: 0.9em;
+}
+
+.module-page .lesson-list-locked-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
+}
+
 /* Progress page */
 .progress-page h1,
 .parent-dashboard h1 {

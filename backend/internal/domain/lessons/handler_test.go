@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"learn_kids/backend/internal/requestcontext"
 )
 
 func init() { gin.SetMode(gin.TestMode) }
@@ -375,5 +376,62 @@ func TestDeleteLesson_NotFound(t *testing.T) {
 	h.DeleteLesson(c)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("status = %d; want 404 when not deleted", w.Code)
+	}
+}
+
+// --- GetLesson: free preview access control ---
+
+// lessonRepoWithSortOrder returns a mockRepo whose GetLessonByIDFn returns a lesson
+// with the given sort_order.
+func lessonRepoWithSortOrder(sortOrder int) *mockRepo {
+	return &mockRepo{
+		GetLessonByIDFn: func(ctx context.Context, id uuid.UUID) (*Lesson, error) {
+			return &Lesson{ID: id, SortOrder: sortOrder}, nil
+		},
+	}
+}
+
+func TestGetLesson_AnonymousFreeLessonAllowed(t *testing.T) {
+	for sortOrder := 0; sortOrder < FreeLessonsCount; sortOrder++ {
+		repo := lessonRepoWithSortOrder(sortOrder)
+		h := NewHandler(repo, nil)
+		id := uuid.New()
+		w, c := jsonRequest(http.MethodGet, "/lessons/"+id.String(), nil, id.String())
+		c.Params = gin.Params{{Key: "id", Value: id.String()}}
+		// No user_id set → anonymous request
+		h.GetLesson(c)
+		if w.Code != http.StatusOK {
+			t.Errorf("sort_order=%d: status = %d; want 200 for anonymous free lesson", sortOrder, w.Code)
+		}
+	}
+}
+
+func TestGetLesson_AnonymousLockedLessonForbidden(t *testing.T) {
+	for _, sortOrder := range []int{FreeLessonsCount, FreeLessonsCount + 1, 10} {
+		repo := lessonRepoWithSortOrder(sortOrder)
+		h := NewHandler(repo, nil)
+		id := uuid.New()
+		w, c := jsonRequest(http.MethodGet, "/lessons/"+id.String(), nil, id.String())
+		c.Params = gin.Params{{Key: "id", Value: id.String()}}
+		// No user_id set → anonymous request
+		h.GetLesson(c)
+		if w.Code != http.StatusForbidden {
+			t.Errorf("sort_order=%d: status = %d; want 403 for anonymous locked lesson", sortOrder, w.Code)
+		}
+	}
+}
+
+func TestGetLesson_AuthenticatedCanAccessLockedLesson(t *testing.T) {
+	sortOrder := FreeLessonsCount + 5
+	repo := lessonRepoWithSortOrder(sortOrder)
+	h := NewHandler(repo, nil)
+	id := uuid.New()
+	w, c := jsonRequest(http.MethodGet, "/lessons/"+id.String(), nil, id.String())
+	c.Params = gin.Params{{Key: "id", Value: id.String()}}
+	// Set user_id to simulate authenticated request
+	c.Set(requestcontext.UserIDKey, uuid.New())
+	h.GetLesson(c)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d; want 200 for authenticated user accessing locked lesson; body = %s", w.Code, w.Body.String())
 	}
 }
