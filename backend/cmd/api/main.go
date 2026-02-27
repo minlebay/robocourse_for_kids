@@ -102,17 +102,25 @@ func main() {
 	usersRepo := users.NewRepo(pool)
 	reactionsRepo := reactions.NewRepo(pool)
 	commentsRepo := comments.NewRepo(pool)
+
+	lessonsSvc := lessons.NewService(lessonsRepo, reactionsRepo)
+	usersSvc := users.NewService(usersRepo, cfg.TeacherInviteCode)
+	progressSvc := progress.NewService(progress.NewRepo(pool), &userChecker{repo: usersRepo})
+	chatSvc := chat.NewService(cfg.GeminiAPIKey, chat.NewRepo(pool), lessonContextFn)
+	commentsSvc := comments.NewService(commentsRepo, reactionsRepo)
+	reactionsSvc := reactions.NewService(reactionsRepo, commentsRepo)
+
 	srv := server.New(server.Deps{
-		Pool:             pool,
-		Lessons:          lessons.NewHandler(lessonsRepo, reactionsRepo),
-		Users:            users.NewHandler(usersRepo, cfg.JWTSecret, cfg.TeacherInviteCode),
-		Progress:         progress.NewHandler(progress.NewRepo(pool), &userChecker{repo: usersRepo}),
-		Chat:             chat.NewHandler(cfg.GeminiAPIKey, chat.NewRepo(pool), lessonContextFn),
-		Comments:         comments.NewHandler(commentsRepo, reactionsRepo),
-		Reactions:        reactions.NewHandler(reactionsRepo, commentsRepo),
-		JWTSecret:        cfg.JWTSecret,
-		FrontendOrigin:   cfg.FrontendOrigin,
-		ShutdownContext:   shutdownCtx,
+		Pool:            pool,
+		Lessons:         lessons.NewHandler(lessonsSvc),
+		Users:           users.NewHandler(usersSvc, cfg.JWTSecret),
+		Progress:        progress.NewHandler(progressSvc),
+		Chat:            chat.NewHandler(chatSvc),
+		Comments:        comments.NewHandler(commentsSvc),
+		Reactions:       reactions.NewHandler(reactionsSvc),
+		JWTSecret:       cfg.JWTSecret,
+		FrontendOrigin:  cfg.FrontendOrigin,
+		ShutdownContext: shutdownCtx,
 	})
 
 	addr := ":" + cfg.Port

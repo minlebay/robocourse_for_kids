@@ -107,7 +107,7 @@ export const ru = {
     confirmDelete: 'Удалить урок?',
     confirmDeleteMessage: 'Удалить урок «{{title}}»?',
     locked: 'Урок недоступен',
-    lockedDesc: 'Первые три урока открыты бесплатно. Зарегистрируйтесь или войдите, чтобы продолжить курс.',
+    lockedDesc: 'Зарегистрируйтесь или войдите, чтобы продолжить курс.',
     lockedLogin: 'Войти',
     lockedRegister: 'Зарегистрироваться',
     lockedBadge: 'Закрыт',

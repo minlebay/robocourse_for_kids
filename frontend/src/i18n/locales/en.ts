@@ -107,7 +107,7 @@ export const en = {
     confirmDelete: 'Delete lesson?',
     confirmDeleteMessage: 'Delete lesson "{{title}}"?',
     locked: 'Lesson locked',
-    lockedDesc: 'The first three lessons are free. Sign in or register to continue the course.',
+    lockedDesc: 'Sign in or register to continue the course.',
     lockedLogin: 'Sign in',
     lockedRegister: 'Register',
     lockedBadge: 'Locked',

@@ -72,7 +72,7 @@ func jsonRequest(method, target string, body interface{}, params map[string]stri
 }
 
 func TestList_InvalidLessonID(t *testing.T) {
-	h := NewHandler(&mockRepo{}, nil)
+	h := NewHandler(NewService(&mockRepo{}, nil))
 	w, c := jsonRequest(http.MethodGet, "/lessons/bad/comments", nil, map[string]string{"id": "bad"})
 	h.List(c)
 	if w.Code != http.StatusBadRequest {
@@ -87,7 +87,7 @@ func TestList_Success(t *testing.T) {
 			return []Comment{{ID: uuid.New(), LessonID: lid, Text: "hello"}}, nil
 		},
 	}
-	h := NewHandler(repo, nil)
+	h := NewHandler(NewService(repo, nil))
 	w, c := jsonRequest(http.MethodGet, "/lessons/"+lessonID.String()+"/comments", nil, map[string]string{"id": lessonID.String()})
 	h.List(c)
 	if w.Code != http.StatusOK {
@@ -100,7 +100,7 @@ func TestList_RepoError(t *testing.T) {
 	repo := &mockRepo{ListByLessonFn: func(ctx context.Context, lid uuid.UUID) ([]Comment, error) {
 		return nil, errors.New("db error")
 	}}
-	h := NewHandler(repo, nil)
+	h := NewHandler(NewService(repo, nil))
 	w, c := jsonRequest(http.MethodGet, "/lessons/"+lessonID.String()+"/comments", nil, map[string]string{"id": lessonID.String()})
 	h.List(c)
 	if w.Code != http.StatusInternalServerError {
@@ -109,7 +109,7 @@ func TestList_RepoError(t *testing.T) {
 }
 
 func TestCreate_Unauthorized(t *testing.T) {
-	h := NewHandler(&mockRepo{}, nil)
+	h := NewHandler(NewService(&mockRepo{}, nil))
 	lessonID := uuid.New()
 	w, c := jsonRequest(http.MethodPost, "/lessons/"+lessonID.String()+"/comments", CreateCommentRequest{Text: "hi"}, map[string]string{"id": lessonID.String()})
 	// no user_id in context
@@ -121,7 +121,7 @@ func TestCreate_Unauthorized(t *testing.T) {
 
 func TestCreate_InvalidLessonID(t *testing.T) {
 	userID := uuid.New()
-	h := NewHandler(&mockRepo{}, nil)
+	h := NewHandler(NewService(&mockRepo{}, nil))
 	w, c := jsonRequest(http.MethodPost, "/lessons/not-uuid/comments", CreateCommentRequest{Text: "hi"}, map[string]string{"id": "not-uuid"})
 	c.Set("user_id", userID)
 	h.Create(c)
@@ -133,7 +133,7 @@ func TestCreate_InvalidLessonID(t *testing.T) {
 func TestCreate_EmptyTextAfterSanitize(t *testing.T) {
 	userID := uuid.New()
 	lessonID := uuid.New()
-	h := NewHandler(&mockRepo{}, nil)
+	h := NewHandler(NewService(&mockRepo{}, nil))
 	// only HTML tags -> sanitize strips all -> empty
 	w, c := jsonRequest(http.MethodPost, "/lessons/"+lessonID.String()+"/comments", CreateCommentRequest{Text: "<script></script>"}, map[string]string{"id": lessonID.String()})
 	c.Set("user_id", userID)
@@ -146,7 +146,7 @@ func TestCreate_EmptyTextAfterSanitize(t *testing.T) {
 func TestCreate_TextTooLong(t *testing.T) {
 	userID := uuid.New()
 	lessonID := uuid.New()
-	h := NewHandler(&mockRepo{}, nil)
+	h := NewHandler(NewService(&mockRepo{}, nil))
 	long := ""
 	for i := 0; i < 2001; i++ {
 		long += "a"
@@ -169,7 +169,7 @@ func TestCreate_Success(t *testing.T) {
 			return &Comment{ID: uuid.New(), LessonID: lid, UserID: uid, Text: text, CreatedAt: time.Now()}, nil
 		},
 	}
-	h := NewHandler(repo, nil)
+	h := NewHandler(NewService(repo, nil))
 	w, c := jsonRequest(http.MethodPost, "/lessons/"+lessonID.String()+"/comments", CreateCommentRequest{Text: "Hello world"}, map[string]string{"id": lessonID.String()})
 	c.Set("user_id", userID)
 	h.Create(c)
@@ -182,7 +182,7 @@ func TestCreate_Success(t *testing.T) {
 }
 
 func TestDelete_Unauthorized(t *testing.T) {
-	h := NewHandler(&mockRepo{}, nil)
+	h := NewHandler(NewService(&mockRepo{}, nil))
 	lessonID := uuid.New()
 	commentID := uuid.New()
 	w, c := jsonRequest(http.MethodDelete, "/lessons/"+lessonID.String()+"/comments/"+commentID.String(), nil, map[string]string{"id": lessonID.String(), "commentId": commentID.String()})
@@ -195,7 +195,7 @@ func TestDelete_Unauthorized(t *testing.T) {
 func TestDelete_InvalidCommentID(t *testing.T) {
 	userID := uuid.New()
 	lessonID := uuid.New()
-	h := NewHandler(&mockRepo{}, nil)
+	h := NewHandler(NewService(&mockRepo{}, nil))
 	w, c := jsonRequest(http.MethodDelete, "/lessons/"+lessonID.String()+"/comments/bad", nil, map[string]string{"id": lessonID.String(), "commentId": "bad"})
 	c.Set("user_id", userID)
 	h.Delete(c)
@@ -211,7 +211,7 @@ func TestDelete_NotFound(t *testing.T) {
 	repo := &mockRepo{DeleteByIDAndUserFn: func(ctx context.Context, cid, lid, uid uuid.UUID) (bool, error) {
 		return false, nil
 	}}
-	h := NewHandler(repo, nil)
+	h := NewHandler(NewService(repo, nil))
 	w, c := jsonRequest(http.MethodDelete, "/lessons/"+lessonID.String()+"/comments/"+commentID.String(), nil, map[string]string{"id": lessonID.String(), "commentId": commentID.String()})
 	c.Set("user_id", userID)
 	h.Delete(c)
@@ -225,7 +225,7 @@ func TestDelete_Success(t *testing.T) {
 	lessonID := uuid.New()
 	commentID := uuid.New()
 	repo := &mockRepo{}
-	h := NewHandler(repo, nil)
+	h := NewHandler(NewService(repo, nil))
 	w, c := jsonRequest(http.MethodDelete, "/lessons/"+lessonID.String()+"/comments/"+commentID.String(), nil, map[string]string{"id": lessonID.String(), "commentId": commentID.String()})
 	c.Set("user_id", userID)
 	h.Delete(c)

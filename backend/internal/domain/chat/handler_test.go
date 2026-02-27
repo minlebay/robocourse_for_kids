@@ -81,7 +81,8 @@ func geminiOK(text string) http.HandlerFunc {
 // ==================== Chat validation ====================
 
 func TestChat_NoAPIKey(t *testing.T) {
-	h := NewHandler("", &mockChatRepo{}, defaultLessonCtx)
+	svc := NewService("", &mockChatRepo{}, defaultLessonCtx)
+	h := NewHandler(svc)
 	w, c := chatRequest(http.MethodPost, "/chat", Request{Message: "hello"})
 	c.Set("user_id", uuid.New())
 
@@ -93,7 +94,8 @@ func TestChat_NoAPIKey(t *testing.T) {
 }
 
 func TestChat_Unauthorized(t *testing.T) {
-	h := NewHandler("key", &mockChatRepo{}, defaultLessonCtx)
+	svc := NewService("key", &mockChatRepo{}, defaultLessonCtx)
+	h := NewHandler(svc)
 	w, c := chatRequest(http.MethodPost, "/chat", Request{Message: "hello"})
 	// no user_id in context
 
@@ -105,7 +107,8 @@ func TestChat_Unauthorized(t *testing.T) {
 }
 
 func TestChat_EmptyMessage(t *testing.T) {
-	h := NewHandler("key", &mockChatRepo{}, defaultLessonCtx)
+	svc := NewService("key", &mockChatRepo{}, defaultLessonCtx)
+	h := NewHandler(svc)
 	w, c := chatRequest(http.MethodPost, "/chat", Request{Message: ""})
 	c.Set("user_id", uuid.New())
 
@@ -117,7 +120,8 @@ func TestChat_EmptyMessage(t *testing.T) {
 }
 
 func TestChat_MessageTooLong(t *testing.T) {
-	h := NewHandler("key", &mockChatRepo{}, defaultLessonCtx)
+	svc := NewService("key", &mockChatRepo{}, defaultLessonCtx)
+	h := NewHandler(svc)
 	long := make([]byte, maxMessageText+1)
 	for i := range long {
 		long[i] = 'a'
@@ -155,9 +159,10 @@ func TestChat_SuccessWithHistory(t *testing.T) {
 		},
 	}
 
-	h := NewHandler("test-api-key", repo, defaultLessonCtx)
-	h.APIBaseURL = geminiMock.URL
-	h.HTTPClient = &http.Client{Timeout: 5 * time.Second}
+	svc := NewService("test-api-key", repo, defaultLessonCtx)
+	h := NewHandler(svc)
+	svc.APIBaseURL = geminiMock.URL
+	svc.HTTPClient = &http.Client{Timeout: 5 * time.Second}
 
 	w, c := chatRequest(http.MethodPost, "/chat", Request{
 		LessonID: lessonID.String(),
@@ -209,9 +214,10 @@ func TestChat_HistoryFromDB(t *testing.T) {
 		},
 	}
 
-	h := NewHandler("key", repo, defaultLessonCtx)
-	h.APIBaseURL = geminiMock.URL
-	h.HTTPClient = &http.Client{Timeout: 5 * time.Second}
+	svc := NewService("key", repo, defaultLessonCtx)
+	h := NewHandler(svc)
+	svc.APIBaseURL = geminiMock.URL
+	svc.HTTPClient = &http.Client{Timeout: 5 * time.Second}
 
 	w, c := chatRequest(http.MethodPost, "/chat", Request{
 		LessonID: lessonID.String(),
@@ -235,9 +241,10 @@ func TestChat_NoLessonFallback(t *testing.T) {
 	geminiMock := httptest.NewServer(geminiOK("ответ"))
 	defer geminiMock.Close()
 
-	h := NewHandler("key", &mockChatRepo{}, defaultLessonCtx)
-	h.APIBaseURL = geminiMock.URL
-	h.HTTPClient = &http.Client{Timeout: 5 * time.Second}
+	svc := NewService("key", &mockChatRepo{}, defaultLessonCtx)
+	h := NewHandler(svc)
+	svc.APIBaseURL = geminiMock.URL
+	svc.HTTPClient = &http.Client{Timeout: 5 * time.Second}
 
 	w, c := chatRequest(http.MethodPost, "/chat", Request{
 		Message: "hello without lesson",
@@ -258,9 +265,10 @@ func TestChat_GeminiError(t *testing.T) {
 	}))
 	defer geminiMock.Close()
 
-	h := NewHandler("key", &mockChatRepo{}, defaultLessonCtx)
-	h.APIBaseURL = geminiMock.URL
-	h.HTTPClient = &http.Client{Timeout: 5 * time.Second}
+	svc := NewService("key", &mockChatRepo{}, defaultLessonCtx)
+	h := NewHandler(svc)
+	svc.APIBaseURL = geminiMock.URL
+	svc.HTTPClient = &http.Client{Timeout: 5 * time.Second}
 
 	w, c := chatRequest(http.MethodPost, "/chat", Request{Message: "hello"})
 	c.Set("user_id", uuid.New())
@@ -284,7 +292,8 @@ func TestGetHistory_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	h := NewHandler("key", repo, defaultLessonCtx)
+	svc := NewService("key", repo, defaultLessonCtx)
+	h := NewHandler(svc)
 	w, c := chatRequest(http.MethodGet, "/chat/history/"+lessonID.String(), nil)
 	c.Set("user_id", uuid.New())
 	c.Params = gin.Params{{Key: "lessonId", Value: lessonID.String()}}
@@ -303,7 +312,8 @@ func TestGetHistory_Success(t *testing.T) {
 }
 
 func TestGetHistory_Unauthorized(t *testing.T) {
-	h := NewHandler("key", &mockChatRepo{}, defaultLessonCtx)
+	svc := NewService("key", &mockChatRepo{}, defaultLessonCtx)
+	h := NewHandler(svc)
 	w, c := chatRequest(http.MethodGet, "/chat/history/"+uuid.New().String(), nil)
 	c.Params = gin.Params{{Key: "lessonId", Value: uuid.New().String()}}
 
@@ -325,7 +335,8 @@ func TestClearHistory_Success(t *testing.T) {
 			return 5, nil
 		},
 	}
-	h := NewHandler("key", repo, defaultLessonCtx)
+	svc := NewService("key", repo, defaultLessonCtx)
+	h := NewHandler(svc)
 
 	r := gin.New()
 	r.DELETE("/chat/history/:lessonId", func(c *gin.Context) { c.Set("user_id", uuid.New()); c.Next() }, h.ClearHistory)

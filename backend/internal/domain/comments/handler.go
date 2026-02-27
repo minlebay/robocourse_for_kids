@@ -2,13 +2,13 @@ package comments
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"learn_kids/backend/internal/httplog"
 	"learn_kids/backend/internal/middleware"
-	"learn_kids/backend/internal/sanitize"
 )
 
 // CommentReactionProvider optionally provides reaction counts for comments (implemented by reactions domain or adapter).
@@ -29,12 +29,30 @@ type Repository interface {
 }
 
 type Handler struct {
-	repo             Repository
-	reactionProvider CommentReactionProvider // optional
+	svc *Service
 }
 
-func NewHandler(repo Repository, reactionProvider CommentReactionProvider) *Handler {
-	return &Handler{repo: repo, reactionProvider: reactionProvider}
+func NewHandler(svc *Service) *Handler {
+	return &Handler{svc: svc}
+}
+
+// handleErr maps service HTTPError to an HTTP response. Returns true if the error was handled.
+func handleErr(c *gin.Context, err error) bool {
+	if err == nil {
+		return false
+	}
+	var he *HTTPError
+	if errors.As(err, &he) {
+		c.JSON(he.Code, gin.H{"error": he.Message})
+		return true
+	}
+	httplog.LogError(c, err)
+	c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+	return true
+}
+
+type CreateCommentRequest struct {
+	Text string `json:"text"`
 }
 
 func (h *Handler) List(c *gin.Context) {
@@ -43,42 +61,14 @@ func (h *Handler) List(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid lesson id"})
 		return
 	}
-	list, err := h.repo.ListByLesson(c.Request.Context(), lessonID)
+	userID := middleware.UserID(c)
+	list, err := h.svc.ListComments(c.Request.Context(), lessonID, userID)
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	if list == nil {
-		list = []Comment{}
-	}
-	if h.reactionProvider != nil && len(list) > 0 {
-		ids := make([]uuid.UUID, len(list))
-		for i := range list {
-			ids[i] = list[i].ID
-		}
-		userID := middleware.UserID(c)
-		counts, userReactions, err := h.reactionProvider.GetForComments(c.Request.Context(), ids, userID)
-		if err != nil {
-			httplog.LogError(c, err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-			return
-		}
-		for i := range list {
-			if c, ok := counts[list[i].ID]; ok {
-				list[i].LikesCount = c.Likes
-				list[i].DislikesCount = c.Dislikes
-			}
-			if r, ok := userReactions[list[i].ID]; ok && r != "" {
-				list[i].UserReaction = &r
-			}
-		}
-	}
 	c.JSON(http.StatusOK, list)
-}
-
-type CreateCommentRequest struct {
-	Text string `json:"text"`
 }
 
 func (h *Handler) Create(c *gin.Context) {
@@ -97,20 +87,8 @@ func (h *Handler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
-	// Sanitize to prevent XSS when comment is rendered (plain text or HTML).
-	text := sanitize.Description(req.Text)
-	if len(text) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "text must be 1–2000 characters"})
-		return
-	}
-	if len(text) > 2000 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "text must be at most 2000 characters"})
-		return
-	}
-	comment, err := h.repo.Create(c.Request.Context(), lessonID, userID, text)
-	if err != nil {
-		httplog.LogError(c, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+	comment, err := h.svc.CreateComment(c.Request.Context(), lessonID, userID, req.Text)
+	if handleErr(c, err) {
 		return
 	}
 	c.JSON(http.StatusCreated, comment)
@@ -132,7 +110,7 @@ func (h *Handler) Delete(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid comment id"})
 		return
 	}
-	deleted, err := h.repo.DeleteByIDAndUser(c.Request.Context(), commentID, lessonID, userID)
+	deleted, err := h.svc.DeleteComment(c.Request.Context(), commentID, lessonID, userID)
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})

@@ -9,7 +9,7 @@ import (
 )
 
 func TestHandler_GenerateAndParseToken(t *testing.T) {
-	h := NewHandler(nil, "test-secret-key", "")
+	h := NewHandler(nil, "test-secret-key")
 	userID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	role := RoleStudent
 
@@ -40,7 +40,7 @@ func TestHandler_GenerateAndParseToken(t *testing.T) {
 }
 
 func TestHandler_GenerateAndParseToken_MustChangePassword(t *testing.T) {
-	h := NewHandler(nil, "test-secret-key", "")
+	h := NewHandler(nil, "test-secret-key")
 	userID := uuid.MustParse("11111111-1111-1111-1111-111111111112")
 
 	token, err := h.generateToken(userID, RoleAdministrator, true)
@@ -58,7 +58,7 @@ func TestHandler_GenerateAndParseToken_MustChangePassword(t *testing.T) {
 }
 
 func TestHandler_ParseToken_Invalid(t *testing.T) {
-	h := NewHandler(nil, "test-secret", "")
+	h := NewHandler(nil, "test-secret")
 
 	_, _, _, _, err := h.ParseToken("invalid")
 	if err != ErrInvalidToken {
@@ -72,10 +72,10 @@ func TestHandler_ParseToken_Invalid(t *testing.T) {
 }
 
 func TestHandler_ParseToken_WrongSecret(t *testing.T) {
-	h1 := NewHandler(nil, "secret-a", "")
+	h1 := NewHandler(nil, "secret-a")
 	token, _ := h1.generateToken(uuid.New(), RoleTeacher, false)
 
-	h2 := NewHandler(nil, "secret-b", "")
+	h2 := NewHandler(nil, "secret-b")
 	_, _, _, _, err := h2.ParseToken(token)
 	if err != ErrInvalidToken {
 		t.Errorf("ParseToken(wrong secret) = %v, want ErrInvalidToken", err)
@@ -83,7 +83,7 @@ func TestHandler_ParseToken_WrongSecret(t *testing.T) {
 }
 
 func TestHandler_NewToken(t *testing.T) {
-	h := NewHandler(nil, "test-secret", "")
+	h := NewHandler(nil, "test-secret")
 	userID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
 	role := RoleTeacher
 
@@ -107,7 +107,7 @@ func TestHandler_NewToken(t *testing.T) {
 }
 
 func TestHandler_ParseToken_Expired(t *testing.T) {
-	h := NewHandler(nil, "test-secret", "")
+	h := NewHandler(nil, "test-secret")
 	userID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
 	// Build a token with exp in the past (same secret as handler).
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{

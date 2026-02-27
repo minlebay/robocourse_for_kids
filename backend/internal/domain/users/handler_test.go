@@ -161,7 +161,7 @@ func parseJSON(w *httptest.ResponseRecorder) map[string]interface{} {
 // ==================== RegisterUser ====================
 
 func TestRegisterUser_Success(t *testing.T) {
-	h := NewHandler(&mockRepo{}, "test-secret", "inv")
+	h := NewHandler(NewService(&mockRepo{}, "inv"), "test-secret")
 	w, c := jsonRequest(http.MethodPost, "/register", RegisterRequest{
 		Login: "testuser", Password: "password123", Name: "Test User",
 	})
@@ -182,7 +182,7 @@ func TestRegisterUser_Success(t *testing.T) {
 }
 
 func TestRegisterUser_TeacherSuccess(t *testing.T) {
-	h := NewHandler(&mockRepo{}, "test-secret", "invite123")
+	h := NewHandler(NewService(&mockRepo{}, "invite123"), "test-secret")
 	w, c := jsonRequest(http.MethodPost, "/register", RegisterRequest{
 		Login: "teacher1", Password: "password123", Name: "Teacher", Role: RoleTeacher, InviteCode: "invite123",
 	})
@@ -195,7 +195,7 @@ func TestRegisterUser_TeacherSuccess(t *testing.T) {
 }
 
 func TestRegisterUser_LoginTooShort(t *testing.T) {
-	h := NewHandler(&mockRepo{}, "s", "")
+	h := NewHandler(NewService(&mockRepo{}, ""), "s")
 	w, c := jsonRequest(http.MethodPost, "/register", RegisterRequest{
 		Login: "ab", Password: "password123", Name: "Test",
 	})
@@ -208,7 +208,7 @@ func TestRegisterUser_LoginTooShort(t *testing.T) {
 }
 
 func TestRegisterUser_PasswordTooShort(t *testing.T) {
-	h := NewHandler(&mockRepo{}, "s", "")
+	h := NewHandler(NewService(&mockRepo{}, ""), "s")
 	w, c := jsonRequest(http.MethodPost, "/register", RegisterRequest{
 		Login: "testuser", Password: "12345", Name: "Test",
 	})
@@ -221,7 +221,7 @@ func TestRegisterUser_PasswordTooShort(t *testing.T) {
 }
 
 func TestRegisterUser_PasswordTooLong(t *testing.T) {
-	h := NewHandler(&mockRepo{}, "s", "")
+	h := NewHandler(NewService(&mockRepo{}, ""), "s")
 	long := make([]byte, 73)
 	for i := range long {
 		long[i] = 'a'
@@ -238,7 +238,7 @@ func TestRegisterUser_PasswordTooLong(t *testing.T) {
 }
 
 func TestRegisterUser_InvalidRole(t *testing.T) {
-	h := NewHandler(&mockRepo{}, "s", "")
+	h := NewHandler(NewService(&mockRepo{}, ""), "s")
 	w, c := jsonRequest(http.MethodPost, "/register", RegisterRequest{
 		Login: "testuser", Password: "password123", Name: "Test", Role: "admin",
 	})
@@ -251,7 +251,7 @@ func TestRegisterUser_InvalidRole(t *testing.T) {
 }
 
 func TestRegisterUser_TeacherDisabled(t *testing.T) {
-	h := NewHandler(&mockRepo{}, "s", "") // empty invite = disabled
+	h := NewHandler(NewService(&mockRepo{}, ""), "s") // empty invite = disabled
 	w, c := jsonRequest(http.MethodPost, "/register", RegisterRequest{
 		Login: "teacher1", Password: "password123", Name: "Teacher", Role: RoleTeacher,
 	})
@@ -264,7 +264,7 @@ func TestRegisterUser_TeacherDisabled(t *testing.T) {
 }
 
 func TestRegisterUser_TeacherWrongInvite(t *testing.T) {
-	h := NewHandler(&mockRepo{}, "s", "correct")
+	h := NewHandler(NewService(&mockRepo{}, "correct"), "s")
 	w, c := jsonRequest(http.MethodPost, "/register", RegisterRequest{
 		Login: "teacher1", Password: "password123", Name: "Teacher", Role: RoleTeacher, InviteCode: "wrong",
 	})
@@ -282,7 +282,7 @@ func TestRegisterUser_DuplicateLogin(t *testing.T) {
 			return nil, &pgconn.PgError{Code: "23505"}
 		},
 	}
-	h := NewHandler(repo, "test-secret", "")
+	h := NewHandler(NewService(repo, ""), "test-secret")
 	w, c := jsonRequest(http.MethodPost, "/register", RegisterRequest{
 		Login: "existing", Password: "password123", Name: "Test",
 	})
@@ -311,7 +311,7 @@ func TestLogin_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	h := NewHandler(repo, "test-secret", "")
+	h := NewHandler(NewService(repo, ""), "test-secret")
 	w, c := jsonRequest(http.MethodPost, "/login", LoginRequest{Login: "testuser", Password: "password123"})
 
 	h.Login(c)
@@ -335,7 +335,7 @@ func TestLogin_WrongPassword(t *testing.T) {
 			}, nil
 		},
 	}
-	h := NewHandler(repo, "test-secret", "")
+	h := NewHandler(NewService(repo, ""), "test-secret")
 	w, c := jsonRequest(http.MethodPost, "/login", LoginRequest{Login: "user", Password: "wrong"})
 
 	h.Login(c)
@@ -346,7 +346,7 @@ func TestLogin_WrongPassword(t *testing.T) {
 }
 
 func TestLogin_UserNotFound(t *testing.T) {
-	h := NewHandler(&mockRepo{}, "test-secret", "") // default returns pgx.ErrNoRows
+	h := NewHandler(NewService(&mockRepo{}, ""), "test-secret") // default returns pgx.ErrNoRows
 	w, c := jsonRequest(http.MethodPost, "/login", LoginRequest{Login: "noone", Password: "password123"})
 
 	h.Login(c)
@@ -366,7 +366,7 @@ func TestLogin_BlockedUser(t *testing.T) {
 			}, nil
 		},
 	}
-	h := NewHandler(repo, "test-secret", "")
+	h := NewHandler(NewService(repo, ""), "test-secret")
 	w, c := jsonRequest(http.MethodPost, "/login", LoginRequest{Login: "blocked", Password: "password123"})
 
 	h.Login(c)
@@ -389,7 +389,7 @@ func TestMe_Success(t *testing.T) {
 			return &User{ID: id, Login: "me", Name: "Me", Role: RoleStudent, Theme: "default", CreatedAt: time.Now()}, nil
 		},
 	}
-	h := NewHandler(repo, "s", "")
+	h := NewHandler(NewService(repo, ""), "s")
 	w, c := jsonRequest(http.MethodGet, "/me", nil)
 	c.Set("user_id", uid)
 
@@ -401,7 +401,7 @@ func TestMe_Success(t *testing.T) {
 }
 
 func TestMe_Unauthorized(t *testing.T) {
-	h := NewHandler(&mockRepo{}, "s", "")
+	h := NewHandler(NewService(&mockRepo{}, ""), "s")
 	w, c := jsonRequest(http.MethodGet, "/me", nil)
 
 	h.Me(c)
@@ -422,7 +422,7 @@ func TestListUsers_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	h := NewHandler(repo, "s", "")
+	h := NewHandler(NewService(repo, ""), "s")
 	w, c := jsonRequest(http.MethodGet, "/users", nil)
 
 	h.ListUsers(c)
@@ -450,7 +450,7 @@ func TestDeleteUser_Success(t *testing.T) {
 			return true, nil
 		},
 	}
-	h := NewHandler(repo, "s", "")
+	h := NewHandler(NewService(repo, ""), "s")
 
 	r := gin.New()
 	r.DELETE("/users/:id", func(c *gin.Context) { c.Set("user_id", myID); c.Next() }, h.DeleteUser)
@@ -472,7 +472,7 @@ func TestDeleteUser_CannotDeleteTeacher(t *testing.T) {
 			return &User{ID: id, Role: RoleTeacher}, nil
 		},
 	}
-	h := NewHandler(repo, "s", "")
+	h := NewHandler(NewService(repo, ""), "s")
 
 	r := gin.New()
 	r.DELETE("/users/:id", func(c *gin.Context) { c.Set("user_id", myID); c.Next() }, h.DeleteUser)
@@ -494,7 +494,7 @@ func TestDeleteUser_CannotDeleteAdmin(t *testing.T) {
 			return &User{ID: id, Role: RoleAdministrator}, nil
 		},
 	}
-	h := NewHandler(repo, "s", "")
+	h := NewHandler(NewService(repo, ""), "s")
 
 	r := gin.New()
 	r.DELETE("/users/:id", func(c *gin.Context) { c.Set("user_id", myID); c.Next() }, h.DeleteUser)
@@ -509,7 +509,7 @@ func TestDeleteUser_CannotDeleteAdmin(t *testing.T) {
 }
 
 func TestDeleteUser_CannotDeleteSelf(t *testing.T) {
-	h := NewHandler(&mockRepo{}, "s", "")
+	h := NewHandler(NewService(&mockRepo{}, ""), "s")
 	myID := uuid.New()
 	w, c := jsonRequest(http.MethodDelete, "/users/"+myID.String(), nil)
 	c.Set("user_id", myID)
@@ -532,7 +532,7 @@ func TestUpdateMe_Success(t *testing.T) {
 			return &User{ID: id, Login: "me", Name: "Me", Role: RoleStudent, Theme: "cyberpunk", CreatedAt: time.Now()}, nil
 		},
 	}
-	h := NewHandler(repo, "s", "")
+	h := NewHandler(NewService(repo, ""), "s")
 	w, c := jsonRequest(http.MethodPut, "/me", UpdateMeRequest{Theme: "cyberpunk"})
 	c.Set("user_id", uid)
 
@@ -544,7 +544,7 @@ func TestUpdateMe_Success(t *testing.T) {
 }
 
 func TestUpdateMe_InvalidTheme(t *testing.T) {
-	h := NewHandler(&mockRepo{}, "s", "")
+	h := NewHandler(NewService(&mockRepo{}, ""), "s")
 	w, c := jsonRequest(http.MethodPut, "/me", UpdateMeRequest{Theme: "neon"})
 	c.Set("user_id", uuid.New())
 
@@ -563,7 +563,7 @@ func TestAdminCreateUser_Success(t *testing.T) {
 			return &User{ID: uuid.New(), Login: login, Name: name, Role: role, Theme: "default", MustChangePassword: mustChangePassword, CreatedAt: time.Now()}, nil
 		},
 	}
-	h := NewHandler(repo, "test-secret", "")
+	h := NewHandler(NewService(repo, ""), "test-secret")
 	w, c := jsonRequest(http.MethodPost, "/admin/users", AdminCreateUserRequest{
 		Login:    "newuser",
 		Password: "password123",
@@ -587,7 +587,7 @@ func TestAdminCreateUser_Success(t *testing.T) {
 }
 
 func TestAdminCreateUser_InvalidEmail(t *testing.T) {
-	h := NewHandler(&mockRepo{}, "test-secret", "")
+	h := NewHandler(NewService(&mockRepo{}, ""), "test-secret")
 	w, c := jsonRequest(http.MethodPost, "/admin/users", AdminCreateUserRequest{
 		Login:    "newuser",
 		Password: "password123",
@@ -614,7 +614,7 @@ func TestAdminCreateUser_ValidEmail(t *testing.T) {
 			return &User{ID: uuid.New(), Login: login, Name: name, Role: role, Theme: "default", Email: &e, MustChangePassword: mustChangePassword, CreatedAt: time.Now()}, nil
 		},
 	}
-	h := NewHandler(repo, "test-secret", "")
+	h := NewHandler(NewService(repo, ""), "test-secret")
 	w, c := jsonRequest(http.MethodPost, "/admin/users", AdminCreateUserRequest{
 		Login:    "newuser",
 		Password: "password123",
@@ -644,7 +644,7 @@ func TestAdminBlockUser_Success(t *testing.T) {
 			return nil
 		},
 	}
-	h := NewHandler(repo, "s", "")
+	h := NewHandler(NewService(repo, ""), "s")
 
 	r := gin.New()
 	r.POST("/admin/users/:id/block", func(c *gin.Context) {
@@ -665,7 +665,7 @@ func TestAdminBlockUser_Success(t *testing.T) {
 
 func TestAdminBlockUser_Self(t *testing.T) {
 	myID := uuid.New()
-	h := NewHandler(&mockRepo{}, "s", "")
+	h := NewHandler(NewService(&mockRepo{}, ""), "s")
 	w, c := jsonRequest(http.MethodPost, "/admin/users/"+myID.String()+"/block", AdminBlockUserRequest{Block: true})
 	c.Set("user_id", myID)
 	c.Params = gin.Params{{Key: "id", Value: myID.String()}}
@@ -686,7 +686,7 @@ func TestAdminBlockUser_Self(t *testing.T) {
 func TestAdminResetPassword_Success(t *testing.T) {
 	targetID := uuid.New()
 	repo := &mockRepo{}
-	h := NewHandler(repo, "s", "")
+	h := NewHandler(NewService(repo, ""), "s")
 
 	r := gin.New()
 	r.POST("/admin/users/:id/reset-password", h.AdminResetPassword)
@@ -812,7 +812,7 @@ func TestAdminGetStats_Success(t *testing.T) {
 			return 42, 8, 64, nil
 		},
 	}
-	h := NewHandler(repo, "s", "")
+	h := NewHandler(NewService(repo, ""), "s")
 	w, c := jsonRequest(http.MethodGet, "/admin/stats", nil)
 
 	h.AdminGetStats(c)
@@ -843,7 +843,7 @@ func TestAdminGetActivity_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	h := NewHandler(repo, "s", "")
+	h := NewHandler(NewService(repo, ""), "s")
 	w, c := jsonRequest(http.MethodGet, "/admin/activity", nil)
 
 	h.AdminGetActivity(c)
@@ -871,7 +871,7 @@ func TestChangePassword_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	h := NewHandler(repo, "test-secret", "")
+	h := NewHandler(NewService(repo, ""), "test-secret")
 	w, c := jsonRequest(http.MethodPost, "/auth/change-password", ChangePasswordRequest{
 		CurrentPassword: "oldpass1",
 		NewPassword:     "newpass1",
@@ -890,7 +890,7 @@ func TestChangePassword_Success(t *testing.T) {
 }
 
 func TestChangePassword_Unauthorized(t *testing.T) {
-	h := NewHandler(&mockRepo{}, "test-secret", "")
+	h := NewHandler(NewService(&mockRepo{}, ""), "test-secret")
 	w, c := jsonRequest(http.MethodPost, "/auth/change-password", ChangePasswordRequest{
 		CurrentPassword: "oldpass1",
 		NewPassword:     "newpass1",
@@ -906,7 +906,7 @@ func TestChangePassword_Unauthorized(t *testing.T) {
 
 func TestChangePassword_NewPasswordTooShort(t *testing.T) {
 	uid := uuid.New()
-	h := NewHandler(&mockRepo{}, "test-secret", "")
+	h := NewHandler(NewService(&mockRepo{}, ""), "test-secret")
 	w, c := jsonRequest(http.MethodPost, "/auth/change-password", ChangePasswordRequest{
 		CurrentPassword: "oldpass1",
 		NewPassword:     "abc",
@@ -922,7 +922,7 @@ func TestChangePassword_NewPasswordTooShort(t *testing.T) {
 
 func TestChangePassword_NewPasswordTooLong(t *testing.T) {
 	uid := uuid.New()
-	h := NewHandler(&mockRepo{}, "test-secret", "")
+	h := NewHandler(NewService(&mockRepo{}, ""), "test-secret")
 	long := make([]byte, 73)
 	for i := range long {
 		long[i] = 'a'
@@ -951,7 +951,7 @@ func TestChangePassword_WrongCurrentPassword(t *testing.T) {
 			}, nil
 		},
 	}
-	h := NewHandler(repo, "test-secret", "")
+	h := NewHandler(NewService(repo, ""), "test-secret")
 	w, c := jsonRequest(http.MethodPost, "/auth/change-password", ChangePasswordRequest{
 		CurrentPassword: "wrongpass",
 		NewPassword:     "newpass1",

@@ -65,15 +65,17 @@ func TestMain(m *testing.M) {
 
 	reactionsRepo := reactions.NewRepo(pool)
 	commentsRepo := comments.NewRepo(pool)
+	lessonsRepo := lessons.NewRepo(pool)
+	usersRepo := users.NewRepo(pool)
 	testPool = &testDeps{
 		srv: New(Deps{
 			Pool:            pool,
-			Lessons:         lessons.NewHandler(lessons.NewRepo(pool), reactionsRepo),
-			Users:           users.NewHandler(users.NewRepo(pool), jwtSecret, inviteCode),
-			Progress:        progress.NewHandler(progress.NewRepo(pool), nil),
-			Chat:            chat.NewHandler(geminiKey, chat.NewRepo(pool), lessonCtxFn),
-			Comments:        comments.NewHandler(commentsRepo, reactionsRepo),
-			Reactions:       reactions.NewHandler(reactionsRepo, commentsRepo),
+			Lessons:         lessons.NewHandler(lessons.NewService(lessonsRepo, reactionsRepo)),
+			Users:           users.NewHandler(users.NewService(usersRepo, inviteCode), jwtSecret),
+			Progress:        progress.NewHandler(progress.NewService(progress.NewRepo(pool), nil)),
+			Chat:            chat.NewHandler(chat.NewService(geminiKey, chat.NewRepo(pool), lessonCtxFn)),
+			Comments:        comments.NewHandler(comments.NewService(commentsRepo, reactionsRepo)),
+			Reactions:       reactions.NewHandler(reactions.NewService(reactionsRepo, commentsRepo)),
 			JWTSecret:       jwtSecret,
 			FrontendOrigin:  "http://localhost:5173",
 			ShutdownContext: shutdownCtx,

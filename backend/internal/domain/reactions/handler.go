@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"learn_kids/backend/internal/httplog"
 	"learn_kids/backend/internal/middleware"
 )
@@ -19,16 +18,30 @@ type CommentLessonChecker interface {
 }
 
 type Handler struct {
-	repo            Repository
-	commentChecker  CommentLessonChecker // optional: when set, comment reactions verify lesson from path
+	svc *Service
 }
 
-func NewHandler(repo Repository, commentChecker CommentLessonChecker) *Handler {
-	return &Handler{repo: repo, commentChecker: commentChecker}
+func NewHandler(svc *Service) *Handler {
+	return &Handler{svc: svc}
 }
 
 type SetReactionRequest struct {
 	Reaction string `json:"reaction"`
+}
+
+// handleErr maps service HTTPError to an HTTP response. Returns true if the error was handled.
+func handleErr(c *gin.Context, err error) bool {
+	if err == nil {
+		return false
+	}
+	var he *HTTPError
+	if errors.As(err, &he) {
+		c.JSON(he.Code, gin.H{"error": he.Message})
+		return true
+	}
+	httplog.LogError(c, err)
+	c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+	return true
 }
 
 // SetLessonReaction sets or updates the current user's reaction for a lesson. JWT required.
@@ -48,13 +61,7 @@ func (h *Handler) SetLessonReaction(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
-	if !validReaction[req.Reaction] {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "reaction must be 'like' or 'dislike'"})
-		return
-	}
-	if err := h.repo.SetLessonReaction(c.Request.Context(), lessonID, userID, req.Reaction); err != nil {
-		httplog.LogError(c, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+	if handleErr(c, h.svc.SetLessonReaction(c.Request.Context(), lessonID, userID, req.Reaction)) {
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -72,7 +79,7 @@ func (h *Handler) DeleteLessonReaction(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid lesson id"})
 		return
 	}
-	deleted, err := h.repo.DeleteLessonReaction(c.Request.Context(), lessonID, userID)
+	deleted, err := h.svc.DeleteLessonReaction(c.Request.Context(), lessonID, userID)
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -102,34 +109,12 @@ func (h *Handler) SetCommentReaction(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid comment id"})
 		return
 	}
-	if h.commentChecker != nil {
-		commentLessonID, err := h.commentChecker.GetCommentLessonID(c.Request.Context(), commentID)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				c.JSON(http.StatusNotFound, gin.H{"error": "comment not found"})
-				return
-			}
-			httplog.LogError(c, err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-			return
-		}
-		if commentLessonID != lessonID {
-			c.JSON(http.StatusNotFound, gin.H{"error": "comment not found"})
-			return
-		}
-	}
 	var req SetReactionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
-	if !validReaction[req.Reaction] {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "reaction must be 'like' or 'dislike'"})
-		return
-	}
-	if err := h.repo.SetCommentReaction(c.Request.Context(), commentID, userID, req.Reaction); err != nil {
-		httplog.LogError(c, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+	if handleErr(c, h.svc.SetCommentReaction(c.Request.Context(), commentID, lessonID, userID, req.Reaction)) {
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -152,23 +137,7 @@ func (h *Handler) DeleteCommentReaction(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid comment id"})
 		return
 	}
-	if h.commentChecker != nil {
-		commentLessonID, err := h.commentChecker.GetCommentLessonID(c.Request.Context(), commentID)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				c.JSON(http.StatusNotFound, gin.H{"error": "comment not found"})
-				return
-			}
-			httplog.LogError(c, err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-			return
-		}
-		if commentLessonID != lessonID {
-			c.JSON(http.StatusNotFound, gin.H{"error": "comment not found"})
-			return
-		}
-	}
-	deleted, err := h.repo.DeleteCommentReaction(c.Request.Context(), commentID, userID)
+	deleted, err := h.svc.DeleteCommentReaction(c.Request.Context(), commentID, lessonID, userID)
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})

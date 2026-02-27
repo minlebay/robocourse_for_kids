@@ -106,7 +106,7 @@ func TestCreateLesson_SanitizesStepContent(t *testing.T) {
 			return &Lesson{ID: uuid.New(), ModuleID: modID, Title: title, Steps: steps}, nil
 		},
 	}
-	h := NewHandler(repo, nil)
+	h := NewHandler(NewService(repo, nil))
 
 	body := CreateLessonRequest{
 		Title:      "Lesson",
@@ -135,7 +135,7 @@ func TestCreateLesson_SanitizesStepContent(t *testing.T) {
 func TestCreateLesson_RejectsTooLongTitle(t *testing.T) {
 	moduleID := uuid.New()
 	repo := &mockRepo{}
-	h := NewHandler(repo, nil)
+	h := NewHandler(NewService(repo, nil))
 
 	longTitle := ""
 	for i := 0; i <= MaxTitleLength; i++ {
@@ -156,7 +156,7 @@ func TestCreateLesson_RejectsTooLongTitle(t *testing.T) {
 func TestCreateLesson_RejectsTooLongStepContent(t *testing.T) {
 	moduleID := uuid.New()
 	repo := &mockRepo{}
-	h := NewHandler(repo, nil)
+	h := NewHandler(NewService(repo, nil))
 
 	longContent := ""
 	for i := 0; i <= MaxStepContentLength; i++ {
@@ -189,7 +189,7 @@ func TestUpdateLesson_SanitizesStepContent(t *testing.T) {
 			return &Lesson{ID: id}, nil
 		},
 	}
-	h := NewHandler(repo, nil)
+	h := NewHandler(NewService(repo, nil))
 
 	steps := []LessonStep{
 		{Title: "Step", Content: `<a href="javascript:alert(1)">click</a>`},
@@ -214,7 +214,7 @@ func TestUpdateLesson_SanitizesStepContent(t *testing.T) {
 
 func TestCreateModule_RejectsTooLongTitle(t *testing.T) {
 	repo := &mockRepo{}
-	h := NewHandler(repo, nil)
+	h := NewHandler(NewService(repo, nil))
 	longTitle := ""
 	for i := 0; i <= MaxTitleLength; i++ {
 		longTitle += "a"
@@ -235,7 +235,7 @@ func TestCreateModule_SanitizesDescription(t *testing.T) {
 			return &Module{ID: uuid.New(), Title: title, Description: description}, nil
 		},
 	}
-	h := NewHandler(repo, nil)
+	h := NewHandler(NewService(repo, nil))
 	body := CreateModuleRequest{Title: "Mod", Description: `<script>bad</script> ok`}
 	w, c := jsonRequest(http.MethodPost, "/modules", body, "")
 	h.CreateModule(c)
@@ -254,7 +254,7 @@ func TestUpdateLesson_RejectsTooLongStepContent(t *testing.T) {
 		longContent += "x"
 	}
 	repo := &mockRepo{}
-	h := NewHandler(repo, nil)
+	h := NewHandler(NewService(repo, nil))
 	steps := []LessonStep{{Title: "Step", Content: longContent}}
 	body := UpdateLessonRequest{Steps: &steps}
 	w, c := jsonRequest(http.MethodPut, "/lessons/"+lessonID.String(), body, lessonID.String())
@@ -273,7 +273,7 @@ func TestListModules_Success(t *testing.T) {
 			return []Module{{ID: uuid.New(), Title: "Mod1", SortOrder: 1}}, nil
 		},
 	}
-	h := NewHandler(repo, nil)
+	h := NewHandler(NewService(repo, nil))
 	w, c := jsonRequest(http.MethodGet, "/modules", nil, "")
 	h.ListModules(c)
 	if w.Code != http.StatusOK {
@@ -282,7 +282,7 @@ func TestListModules_Success(t *testing.T) {
 }
 
 func TestGetModule_InvalidID(t *testing.T) {
-	h := NewHandler(&mockRepo{}, nil)
+	h := NewHandler(NewService(&mockRepo{}, nil))
 	w, c := jsonRequest(http.MethodGet, "/modules/not-a-uuid", nil, "not-a-uuid")
 	c.Params = gin.Params{{Key: "id", Value: "not-a-uuid"}}
 	h.GetModule(c)
@@ -295,7 +295,7 @@ func TestGetModule_NotFound(t *testing.T) {
 	repo := &mockRepo{GetModuleByIDFn: func(ctx context.Context, id uuid.UUID) (*Module, error) {
 		return nil, pgx.ErrNoRows
 	}}
-	h := NewHandler(repo, nil)
+	h := NewHandler(NewService(repo, nil))
 	id := uuid.New()
 	w, c := jsonRequest(http.MethodGet, "/modules/"+id.String(), nil, id.String())
 	c.Params = gin.Params{{Key: "id", Value: id.String()}}
@@ -306,7 +306,7 @@ func TestGetModule_NotFound(t *testing.T) {
 }
 
 func TestGetLesson_InvalidID(t *testing.T) {
-	h := NewHandler(&mockRepo{}, nil)
+	h := NewHandler(NewService(&mockRepo{}, nil))
 	w, c := jsonRequest(http.MethodGet, "/lessons/bad", nil, "bad")
 	c.Params = gin.Params{{Key: "id", Value: "bad"}}
 	h.GetLesson(c)
@@ -319,7 +319,7 @@ func TestGetLesson_NotFound(t *testing.T) {
 	repo := &mockRepo{GetLessonByIDFn: func(ctx context.Context, id uuid.UUID) (*Lesson, error) {
 		return nil, pgx.ErrNoRows
 	}}
-	h := NewHandler(repo, nil)
+	h := NewHandler(NewService(repo, nil))
 	id := uuid.New()
 	w, c := jsonRequest(http.MethodGet, "/lessons/"+id.String(), nil, id.String())
 	c.Params = gin.Params{{Key: "id", Value: id.String()}}
@@ -331,7 +331,7 @@ func TestGetLesson_NotFound(t *testing.T) {
 
 func TestCreateLesson_InvalidLessonType(t *testing.T) {
 	moduleID := uuid.New()
-	h := NewHandler(&mockRepo{}, nil)
+	h := NewHandler(NewService(&mockRepo{}, nil))
 	body := CreateLessonRequest{Title: "Lesson", LessonType: "invalid_type"}
 	w, c := jsonRequest(http.MethodPost, "/modules/"+moduleID.String()+"/lessons", body, moduleID.String())
 	c.Params = gin.Params{{Key: "id", Value: moduleID.String()}}
@@ -342,7 +342,7 @@ func TestCreateLesson_InvalidLessonType(t *testing.T) {
 }
 
 func TestCreateModule_EmptyTitle(t *testing.T) {
-	h := NewHandler(&mockRepo{}, nil)
+	h := NewHandler(NewService(&mockRepo{}, nil))
 	body := CreateModuleRequest{Title: ""}
 	w, c := jsonRequest(http.MethodPost, "/modules", body, "")
 	h.CreateModule(c)
@@ -355,7 +355,7 @@ func TestDeleteModule_NotFound(t *testing.T) {
 	repo := &mockRepo{DeleteModuleFn: func(ctx context.Context, id uuid.UUID) (bool, error) {
 		return false, nil
 	}}
-	h := NewHandler(repo, nil)
+	h := NewHandler(NewService(repo, nil))
 	id := uuid.New()
 	w, c := jsonRequest(http.MethodDelete, "/modules/"+id.String(), nil, id.String())
 	c.Params = gin.Params{{Key: "id", Value: id.String()}}
@@ -369,7 +369,7 @@ func TestDeleteLesson_NotFound(t *testing.T) {
 	repo := &mockRepo{DeleteLessonFn: func(ctx context.Context, id uuid.UUID) (bool, error) {
 		return false, nil
 	}}
-	h := NewHandler(repo, nil)
+	h := NewHandler(NewService(repo, nil))
 	id := uuid.New()
 	w, c := jsonRequest(http.MethodDelete, "/lessons/"+id.String(), nil, id.String())
 	c.Params = gin.Params{{Key: "id", Value: id.String()}}
@@ -394,7 +394,7 @@ func lessonRepoWithSortOrder(sortOrder int) *mockRepo {
 func TestGetLesson_AnonymousFreeLessonAllowed(t *testing.T) {
 	for sortOrder := 0; sortOrder < FreeLessonsCount; sortOrder++ {
 		repo := lessonRepoWithSortOrder(sortOrder)
-		h := NewHandler(repo, nil)
+		h := NewHandler(NewService(repo, nil))
 		id := uuid.New()
 		w, c := jsonRequest(http.MethodGet, "/lessons/"+id.String(), nil, id.String())
 		c.Params = gin.Params{{Key: "id", Value: id.String()}}
@@ -409,7 +409,7 @@ func TestGetLesson_AnonymousFreeLessonAllowed(t *testing.T) {
 func TestGetLesson_AnonymousLockedLessonForbidden(t *testing.T) {
 	for _, sortOrder := range []int{FreeLessonsCount, FreeLessonsCount + 1, 10} {
 		repo := lessonRepoWithSortOrder(sortOrder)
-		h := NewHandler(repo, nil)
+		h := NewHandler(NewService(repo, nil))
 		id := uuid.New()
 		w, c := jsonRequest(http.MethodGet, "/lessons/"+id.String(), nil, id.String())
 		c.Params = gin.Params{{Key: "id", Value: id.String()}}
@@ -424,7 +424,7 @@ func TestGetLesson_AnonymousLockedLessonForbidden(t *testing.T) {
 func TestGetLesson_AuthenticatedCanAccessLockedLesson(t *testing.T) {
 	sortOrder := FreeLessonsCount + 5
 	repo := lessonRepoWithSortOrder(sortOrder)
-	h := NewHandler(repo, nil)
+	h := NewHandler(NewService(repo, nil))
 	id := uuid.New()
 	w, c := jsonRequest(http.MethodGet, "/lessons/"+id.String(), nil, id.String())
 	c.Params = gin.Params{{Key: "id", Value: id.String()}}

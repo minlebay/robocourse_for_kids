@@ -5,15 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"learn_kids/backend/internal/httplog"
 	"learn_kids/backend/internal/middleware"
-	"learn_kids/backend/internal/sanitize"
 )
 
 // Length limits for validation (defence against huge payloads and DB bloat).
@@ -24,8 +20,6 @@ const (
 	MaxStepsPerLesson    = 200
 	MaxTagLength         = 100
 )
-
-var validLessonTypes = map[string]bool{"theory": true, "practice": true, "project": true}
 
 // Repository defines the data access interface for lessons and modules.
 type Repository interface {
@@ -45,12 +39,26 @@ type LessonReactionProvider interface {
 }
 
 type Handler struct {
-	repo             Repository
-	reactionProvider LessonReactionProvider // optional; nil = do not attach reaction counts
+	svc *Service
 }
 
-func NewHandler(repo Repository, reactionProvider LessonReactionProvider) *Handler {
-	return &Handler{repo: repo, reactionProvider: reactionProvider}
+func NewHandler(svc *Service) *Handler {
+	return &Handler{svc: svc}
+}
+
+// handleErr maps service HTTPError to an HTTP response. Returns true if the error was handled.
+func handleErr(c *gin.Context, err error) bool {
+	if err == nil {
+		return false
+	}
+	var he *HTTPError
+	if errors.As(err, &he) {
+		c.JSON(he.Code, gin.H{"error": he.Message})
+		return true
+	}
+	httplog.LogError(c, err)
+	c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+	return true
 }
 
 func (h *Handler) ListModules(c *gin.Context) {
@@ -62,7 +70,7 @@ func (h *Handler) ListModules(c *gin.Context) {
 		}
 		tag = &t
 	}
-	list, err := h.repo.ListModules(c.Request.Context(), tag)
+	list, err := h.svc.ListModules(c.Request.Context(), tag)
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -77,14 +85,8 @@ func (h *Handler) GetModule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid module id"})
 		return
 	}
-	mod, err := h.repo.GetModuleByID(c.Request.Context(), id)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "module not found"})
-			return
-		}
-		httplog.LogError(c, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+	mod, err := h.svc.GetModuleByID(c.Request.Context(), id)
+	if handleErr(c, err) {
 		return
 	}
 	c.JSON(http.StatusOK, mod)
@@ -102,20 +104,8 @@ func (h *Handler) CreateModule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
-	if len(req.Title) > MaxTitleLength {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("title must be at most %d characters", MaxTitleLength)})
-		return
-	}
-	if len(req.Description) > MaxDescriptionLength {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("description must be at most %d characters", MaxDescriptionLength)})
-		return
-	}
-	title := sanitize.Description(req.Title)
-	description := sanitize.Description(req.Description)
-	mod, err := h.repo.CreateModule(c.Request.Context(), title, description, req.SortOrder)
-	if err != nil {
-		httplog.LogError(c, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+	mod, err := h.svc.CreateModule(c.Request.Context(), req.Title, req.Description, req.SortOrder)
+	if handleErr(c, err) {
 		return
 	}
 	c.JSON(http.StatusCreated, mod)
@@ -127,7 +117,7 @@ func (h *Handler) DeleteModule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid module id"})
 		return
 	}
-	deleted, err := h.repo.DeleteModule(c.Request.Context(), id)
+	deleted, err := h.svc.DeleteModule(c.Request.Context(), id)
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -146,7 +136,7 @@ func (h *Handler) DeleteLesson(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid lesson id"})
 		return
 	}
-	deleted, err := h.repo.DeleteLesson(c.Request.Context(), id)
+	deleted, err := h.svc.DeleteLesson(c.Request.Context(), id)
 	if err != nil {
 		httplog.LogError(c, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -178,64 +168,12 @@ func (h *Handler) CreateLesson(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
-	if len(req.Title) > MaxTitleLength {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("title must be at most %d characters", MaxTitleLength)})
-		return
-	}
-	if len(req.Description) > MaxDescriptionLength {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("description must be at most %d characters", MaxDescriptionLength)})
-		return
-	}
-	if req.LessonType == "" {
-		req.LessonType = "theory"
-	}
-	if !validLessonTypes[req.LessonType] {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "lesson_type must be theory, practice, or project"})
-		return
-	}
-	steps := make([]LessonStep, 0, len(req.Steps))
-	for i, s := range req.Steps {
-		if s.Title == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "step " + strconv.Itoa(i+1) + " title must not be empty"})
-			return
-		}
-		steps = append(steps, s)
-	}
-	if len(steps) > MaxStepsPerLesson {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("at most %d steps per lesson", MaxStepsPerLesson)})
-		return
-	}
-	for i := range steps {
-		if len(steps[i].Title) > MaxTitleLength {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("step %d title must be at most %d characters", i+1, MaxTitleLength)})
-			return
-		}
-		if len(steps[i].Content) > MaxStepContentLength {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("step %d content must be at most %d characters", i+1, MaxStepContentLength)})
-			return
-		}
-		steps[i].Title = sanitize.Description(steps[i].Title)
-		steps[i].Content = sanitize.LessonContent(steps[i].Content)
-	}
-	// Sanitize title consistently with UpdateLesson.
-	title := sanitize.Description(req.Title)
-	description := sanitize.Description(req.Description)
-	lesson, err := h.repo.CreateLesson(c.Request.Context(), moduleID, title, description, req.LessonType, req.SortOrder, steps)
-	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "module not found"})
-			return
-		}
-		httplog.LogError(c, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+	lesson, err := h.svc.CreateLesson(c.Request.Context(), moduleID, req.Title, req.Description, req.LessonType, req.SortOrder, req.Steps)
+	if handleErr(c, err) {
 		return
 	}
 	c.JSON(http.StatusCreated, lesson)
 }
-
-// FreeLessonsCount is the number of lessons (by sort_order) accessible without login.
-const FreeLessonsCount = 3
 
 func (h *Handler) GetLesson(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
@@ -243,35 +181,10 @@ func (h *Handler) GetLesson(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid lesson id"})
 		return
 	}
-	lesson, err := h.repo.GetLessonByID(c.Request.Context(), id)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "lesson not found"})
-			return
-		}
-		httplog.LogError(c, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+	userID := middleware.UserID(c)
+	lesson, err := h.svc.GetLesson(c.Request.Context(), id, userID)
+	if handleErr(c, err) {
 		return
-	}
-	// Free preview: only the first FreeLessonsCount lessons (sort_order 0..FreeLessonsCount-1)
-	// are accessible without authentication.
-	if middleware.UserID(c) == uuid.Nil && lesson.SortOrder >= FreeLessonsCount {
-		c.JSON(http.StatusForbidden, gin.H{"error": "auth_required"})
-		return
-	}
-	if h.reactionProvider != nil {
-		userID := middleware.UserID(c)
-		likes, dislikes, userReaction, err := h.reactionProvider.GetForLesson(c.Request.Context(), id, userID)
-		if err != nil {
-			httplog.LogError(c, err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-			return
-		}
-		lesson.LikesCount = likes
-		lesson.DislikesCount = dislikes
-		if userReaction != "" {
-			lesson.UserReaction = &userReaction
-		}
 	}
 	c.JSON(http.StatusOK, lesson)
 }
@@ -295,61 +208,14 @@ func (h *Handler) UpdateLesson(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
-	if body.Title != nil && *body.Title == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "title must not be empty"})
-		return
-	}
-	if body.Title != nil && len(*body.Title) > MaxTitleLength {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("title must be at most %d characters", MaxTitleLength)})
-		return
-	}
-	if body.Description != nil && len(*body.Description) > MaxDescriptionLength {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("description must be at most %d characters", MaxDescriptionLength)})
-		return
-	}
-	var steps []LessonStep
+	var rawSteps []LessonStep
 	if body.Steps != nil {
-		steps = *body.Steps
-		if len(steps) > MaxStepsPerLesson {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("at most %d steps per lesson", MaxStepsPerLesson)})
-			return
-		}
-		for i, s := range steps {
-			if s.Title == "" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "step " + strconv.Itoa(i+1) + " title must not be empty"})
-				return
-			}
-			if len(s.Title) > MaxTitleLength {
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("step %d title must be at most %d characters", i+1, MaxTitleLength)})
-				return
-			}
-			if len(s.Content) > MaxStepContentLength {
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("step %d content must be at most %d characters", i+1, MaxStepContentLength)})
-				return
-			}
-		}
-		for i := range steps {
-			steps[i].Title = sanitize.Description(steps[i].Title)
-			steps[i].Content = sanitize.LessonContent(steps[i].Content)
-		}
+		rawSteps = *body.Steps
+	} else {
+		rawSteps = nil
 	}
-	var title, description *string
-	if body.Title != nil {
-		t := sanitize.Description(*body.Title)
-		title = &t
-	}
-	if body.Description != nil {
-		d := sanitize.Description(*body.Description)
-		description = &d
-	}
-	lesson, err := h.repo.UpdateLesson(c.Request.Context(), id, title, description, steps)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "lesson not found"})
-			return
-		}
-		httplog.LogError(c, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+	lesson, err := h.svc.UpdateLesson(c.Request.Context(), id, body.Title, body.Description, rawSteps)
+	if handleErr(c, err) {
 		return
 	}
 	c.JSON(http.StatusOK, lesson)
