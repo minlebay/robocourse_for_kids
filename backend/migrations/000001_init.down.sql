@@ -1,3 +1,7 @@
+DROP TABLE IF EXISTS comment_reactions;
+DROP TABLE IF EXISTS lesson_reactions;
+DROP TABLE IF EXISTS chat_messages;
+DROP TABLE IF EXISTS lesson_comments;
 DROP TABLE IF EXISTS user_checklist_progress;
 DROP TABLE IF EXISTS user_lesson_progress;
 DROP TABLE IF EXISTS checklist_items;
@@ -6,6 +10,7 @@ DROP TABLE IF EXISTS lesson_materials;
 DROP TABLE IF EXISTS lesson_steps;
 DROP TABLE IF EXISTS lessons;
 DROP TABLE IF EXISTS modules;
+DROP TABLE IF EXISTS user_roles;
 DROP TABLE IF EXISTS users;
 
 DROP TYPE IF EXISTS progress_status;
